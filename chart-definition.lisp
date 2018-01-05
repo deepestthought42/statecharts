@@ -8,21 +8,37 @@
 			(make-instance 'event :name event-name)))))
     (push transition-object (registered-transitions event))))
 
-(defun %t (initial-state event final-state if)
+
+
+
+
+(defun %c (name description entry exit selector elements)
+  (make-instance 'cluster :name name :description description
+			  :on-entry (if entry entry (constantly t))
+			  :on-exit (if exit exit (constantly t))
+			  :selector selector
+			  :elements elements))
+
+(defun %o (name description entry exit selector elements)
+  (make-instance 'orthogonal :name name :description description
+			     :on-entry (if entry entry (constantly t))
+			     :on-exit (if exit exit (constantly t))
+			     :selector selector
+			     :elements elements))
+
+(defun %t (initial-key event final-key if)
   (make-instance 'transition
-		 :name (concatenate 'string
-				    initial-state
-				    "->" (if if if "")
-				    final-state)
+		 :name (format nil "~a" (append initial-key '(->) final-key))
 		 :event event
-		 :initial-state initial-state
-		 :final-state final-state
+		 :initial-state initial-key
+		 :final-state final-key
 		 :guard (if if if (constantly t))))
 
 
-(defun %s (name description entry exit)
+(defun %s (name description entry exit selector)
   (make-instance 'state :name name :description description
 			:on-entry (if entry entry (constantly t))
+			:selector selector
 			:on-exit (if exit exit (constantly t))))
 
 
@@ -42,7 +58,8 @@
       ;; "B" within "A" within the current superstate
       ((and (listp key)
 	    (mapcar #'valid-descriptor key)
-	    (mapcar #'valid-descriptor superstate))
+	    (or (equal nil superstate)
+		(mapcar #'valid-descriptor superstate)))
        (append superstate key))
       ;; "A" references "A" within the current superstate
       ((stringp key)
@@ -61,18 +78,13 @@
     state-object))
 
 
-
-(defun %register-transition (statechart superstate initial final transition-object)
+(defun %register-transition (statechart superstate initial-key final-key transition-object)
   (let+ (((&slots transitions) statechart)
-	 (initial-key (%dereference-key superstate initial))
-	 (final-key (%dereference-key superstate final))
 	 (key (append initial-key final-key))
 	 (existing (gethash key transitions)))
     (if existing (error 'transition-exists :key key))
     (setf (gethash key transitions) transition-object))
   transition-object)
-
-
 
 
 
@@ -88,25 +100,64 @@
 	    :message "Description needs to be a string."
 	    :offending-code description))))
 
+
+
+
 (defmacro defstatechart ((name &key (description "")) &body definitions)
   (%check-defstatechart-arguments name description definitions)
-  (alexandria:with-gensyms (statechart superstate)
-    `(let* ((,statechart (make-instance 'statechart :name ,(string name)
-						    :description ,description))
-	    (,superstate ()))
-       (labels ((:-> (event initial-state final-state &key if)
-		  (let ((trans-obj (%t initial-state event final-state if)))
-		    (%register-event ,statechart event trans-obj)
-		    (%register-transition ,statechart ,superstate
-					  initial-state final-state trans-obj)))
+  `(let* ((statechart (make-instance 'statecharts::statechart :name ,(string name)
+							      :description ,description))
+	  (superstate-key '())
+	  (current-selector))
+     (macrolet ((:d (name &body body)
+		  `(let* ((current-selector (make-instance 'statecharts::default-selector
+							   :selected-state ,name)))
+		     (progn ,@body)))
+		(:h (name &body body)
+		  `(let* ((current-selector (make-instance 'statecharts::history-selector
+							   :selected-state ,name)))
+		     (progn ,@body)))
+		(:c ((name &key (description "") entry exit) &body sub-states)
+		  `(statecharts::%register-state statechart superstate-key ,name 
+						 (let ((superstate-key (append superstate-key (list ,name))))
+						   (%c ,name ,description statechart
+						       superstate-key current-selector
+						       (list ,@sub-states)))))
+		(:o ((name &key (description "") entry exit) &body sub-states)
+		  `(statecharts::%register-state statechart superstate-key ,name 
+						 (let ((superstate-key (append superstate-key (list ,name))))
+						   (%o ,name ,description statechart
+						       superstate-key current-selector
+						       (list ,@sub-states)))))
+		(:-> (event initial final &key if)
+		  `(let* ((initial-key (statecharts::%dereference-key superstate-key ,initial))
+			  (final-key (statecharts::%dereference-key superstate-key ,final))
+			  (trans-obj (statecharts::%t initial-key ,event final-key ,if)))
+		     (statecharts::%register-event statechart ,event trans-obj)
+		     (statecharts::%register-transition statechart superstate-key
+							initial-key final-key trans-obj)))
 		(:s (name &key (description "") entry exit)
-		  (%register-state ,statechart ,superstate name
-				   (%s name description entry exit))))
-	 (progn ,@definitions)
-	 (defparameter ,name ,statechart)))))
+		  `(statecharts::%register-state statechart superstate-key ,name 
+						 (statecharts::%s ,name ,description ,entry ,exit
+								  current-selector))))
+       (progn ,@definitions))
+     (defparameter ,name statechart)))
 
 
 (defstatechart (test-states)
-  (:s "A" :entry (constantly nil))
-  (:s "C")
-  (:-> "" "A" "C" ))
+  (:h "D"
+      (:c ("D")
+	  (:d "A"
+	      (:s "A" :entry (constantly nil))
+	      (:s "C")
+	      (:-> "hickup" "A" "C")))
+      (:s "B")
+      (:-> "fart" '("D" "A") "B")))
+
+
+
+
+
+
+
+

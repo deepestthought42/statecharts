@@ -10,5 +10,6 @@
   :serial t
   :components ((:file "package")
 	       (:file "api")
-               (:file "statecharts")))
+               (:file "statecharts")
+	       (:file "chart-definition")))
 

@@ -9,7 +9,9 @@
 
 (define-condition invalid-state-descriptor (error)
   ((descriptor :accessor descriptor :initarg :descriptor
-	       :initform "unspecified descriptor")))
+	       :initform "unspecified descriptor"))
+    (:report (lambda (condition stream)
+	       (format stream "Invalid state descriptor: ~a" (descriptor condition)))))
 
 
 (define-condition invalid-chart-syntax (program-error)

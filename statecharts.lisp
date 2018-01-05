@@ -56,17 +56,27 @@
 	     :initform (constantly t))
    (on-exit :initarg :on-exit
 	    :accessor on-exit 
-	    :initform (constantly t))))
+	    :initform (constantly t))
+   (selector :initarg :selector :accessor selector 
+	     :initform (error "Must initialize selector."))))
 
-(defclass history (state) ())
 
-(defparameter *history-types* '(:same-level-only :all-deeper-levels))
 
-(defclass cluster (statechart-element)
-  ((default-state :initarg :default-state :accessor default-state 
-		  :initform (error "Must initialize default-state."))
-   
-   (elements :initarg :elements :accessor elements 
+(defclass state-selector (statechart-element)
+  ((selected-state :initarg :selected-state :accessor selected-state 
+		   :initform (error "Must initialize selected-state."))))
+
+
+(defclass history-selector (state-selector) ()
+  (:default-initargs :name "History selector"))
+
+
+(defclass default-selector (state-selector) ()
+  (:default-initargs :name "Default state selector"))
+
+
+(defclass cluster (state)
+  ((elements :initarg :elements :accessor elements 
 	     :initform (error "Must initialize elements."))))
 
 (defclass orthogonal (cluster) ())
