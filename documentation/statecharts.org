@@ -1,0 +1,57 @@
+* statecharts paper 
+#+INTERLEAVE_PDF: statechart-paper.pdf
+- statecharts is designed to describe a reactive system 
+
+- states and events are /a priori/ a natural medium for describing the dynamic behaviour of
+  a complex system
+
+- statecharts main advantage: not all combinations of states have to be represented
+  explicitly
+
+- states can be clustered in a superstate
+- states can be orhtogonal (or independent)
+- states can be refined
+
+** technical summary of statecharts
+Statecharts is the extension of conventional state diagrams by AND/OR decomposition of
+states together with inter-level transitions, and a broadcast mechanism for communication
+between concurrent components.
+
+/statecharts = state-diagrams + depth + orthogonality + broadcast-cummunication/
+* Chart elements
+** Arrow
+Represents a state change upon receiving an event that is used to label the arrow.
+** 
+* Things to think about
+** TODO how to manage broadcasts
+Specifically: How to manage the order of broadcasts.
+
+* Definitions 
+** System
+A regularly interacting or interdependent group of items forming a unified whole [fn:1].
+** State 
+<<state>> The state of a system is defined by the value of the variables that describe the
+system.
+** Event
+We use the physical definition of an event: an event is the instantaneous physical
+situation or occurrence associated with a point in spacetime (that is, a specific place
+and time). A state transition is explicity defined as an event. 
+** Transition
+A change of state.
+** 
+** reactive system
+<<reactive>> As opposed to a transformational system, a reactive system is characterized
+by being event driven, continuously having to react to external and internal stimuli.
+ 
+Behaviour of a reactive system is the set of allowed seuences of input and output events,
+conditions, actions, and additional information such as timing constraints.
+
+* Implementation 
+** ideas floating
+*** for C backend: use plain enums
+*** write backend independent binary format
+- protobuf ?
+* Footnotes
+
+[fn:1] https://www.merriam-webster.com/dictionary/system
+
