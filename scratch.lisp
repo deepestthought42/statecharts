@@ -8,10 +8,7 @@
 
 
 
-(defstatechart (test-states)
-  (:s "A" :entry (constantly nil))
-  (:s "C")
-  (:-> "" "A" "C" ))
+
 
 
 

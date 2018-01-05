@@ -19,7 +19,9 @@
       (error "Must initialize name for statechart-element.")))
 
 
-(defclass event (statechart-element) ())
+(defclass event (statechart-element)
+  ((registered-transitions :accessor registered-transitions :initarg :registered-transitions
+			   :initform '())))
 
 (defparameter *no-event* nil)
 (defparameter *unknown* nil)

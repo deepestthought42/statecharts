@@ -1,17 +1,23 @@
 (in-package #:statecharts)
 
-
+(defun %register-event (statechart event-name transition-object)
+  (let+ (((&slots events) statechart)
+	 (event (alexandria:if-let (existing (gethash event-name events))
+		  existing
+		  (setf (gethash event-name events)
+			(make-instance 'event :name event-name)))))
+    (push transition-object (registered-transitions event))))
 
 (defun %t (initial-state event final-state if)
   (make-instance 'transition
-		  :name (concatenate 'string
-				     initial-state
-				     "->" (if if if "")
-				     final-state)
-		  :event event
-		  :initial-state initial-state
-		  :final-state final-state
-		  :guard (if if if (constantly t))))
+		 :name (concatenate 'string
+				    initial-state
+				    "->" (if if if "")
+				    final-state)
+		 :event event
+		 :initial-state initial-state
+		 :final-state final-state
+		 :guard (if if if (constantly t))))
 
 
 (defun %s (name description entry exit)
@@ -68,6 +74,8 @@
 
 
 
+
+
 (defun %check-defstatechart-arguments (name description definitions)
   (declare (ignore definitions))
   (cond
@@ -87,11 +95,18 @@
 						    :description ,description))
 	    (,superstate ()))
        (labels ((:-> (event initial-state final-state &key if)
-		  (%register-transition ,statechart ,superstate
-					initial-state final-state
-					(%t initial-state event final-state if)))
+		  (let ((trans-obj (%t initial-state event final-state if)))
+		    (%register-event ,statechart event trans-obj)
+		    (%register-transition ,statechart ,superstate
+					  initial-state final-state trans-obj)))
 		(:s (name &key (description "") entry exit)
 		  (%register-state ,statechart ,superstate name
 				   (%s name description entry exit))))
 	 (progn ,@definitions)
 	 (defparameter ,name ,statechart)))))
+
+
+(defstatechart (test-states)
+  (:s "A" :entry (constantly nil))
+  (:s "C")
+  (:-> "" "A" "C" ))
