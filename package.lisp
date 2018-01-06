@@ -2,6 +2,7 @@
 
 (defpackage #:statecharts
   (:use #:cl #:iterate #:let-plus)
+  (:nicknames #:sc)
   (:export
    #:statechart-element
    #:event
@@ -17,5 +18,12 @@
    #:state-exists
    #:transition-exists
    #:invalid-state-descriptor
-   #:invalid-chart-syntax))
+   #:invalid-chart-syntax
+   #:->
+   #:d
+   #:h
+   #:c
+   #:o
+   #:defstatechart
+   #:s))
 

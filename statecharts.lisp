@@ -36,6 +36,7 @@
    (transitions :accessor transitions :initarg :transitions :initform (default-hashtable))
    (events :accessor events :initarg :events :initform (default-hashtable))))
 
+(defclass environment () ())
 
 (defclass transition (statechart-element)
   ((event :initarg :event :accessor event 
