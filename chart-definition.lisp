@@ -3,14 +3,6 @@
 ;;; 
 
 
-(defun %register-event (statechart event-name transition-object)
-  (let+ (((&slots events) statechart)
-	 (event (alexandria:if-let (existing (gethash event-name events))
-		  existing
-		  (setf (gethash event-name events)
-			(make-instance 'event :name event-name)))))
-    (push transition-object (registered-transitions event))))
-
 
 (defun %t (initial-key event final-key if)
   (labels ((format-key (key)
@@ -61,23 +53,6 @@
 		:descriptor key)))))
 
 
-(defun %register-state (statechart superstate state-name state-object)
-  (let+ (((&slots states) statechart)
-	 (key (%dereference-key superstate state-name))
-	 (existing (gethash key states)))
-    (if existing (error 'state-exists :key key))
-    (setf (gethash key states) state-object)
-    state-object))
-
-
-(defun %register-transition (statechart initial-key final-key transition-object)
-  (let+ (((&slots transitions) statechart)
-	 (key (append initial-key final-key))
-	 (existing (gethash key transitions)))
-    (if existing (error 'transition-exists :key key))
-    (setf (gethash key transitions) transition-object))
-  transition-object)
-
 
 
 (defun %check-defstatechart-arguments (name description definitions)
@@ -109,14 +84,12 @@
 (defmacro %superstate (type name state-selector default-state description entry exit sub-states)
   `(,state-selector
     ,default-state
-    (statecharts::%register-state
-     statechart superstate-key ,name 
-     (with-new-superstate ,name
-       (make-instance ',type :name ,name :description ,description
-			     :on-entry (if ,entry ,entry (constantly t))
-			     :on-exit (if ,exit ,exit (constantly t))
-			     :selector current-selector
-			     :elements (list ,@sub-states))))))
+    (with-new-superstate ,name
+      (make-instance ',type :name ,name :description ,description
+			    :on-entry (if ,entry ,entry (constantly t))
+			    :on-exit (if ,exit ,exit (constantly t))
+			    :selector current-selector
+			    :elements (list ,@sub-states)))))
 
 ;;; statechart definition language
 
@@ -129,10 +102,8 @@ proceed if IF returns true.
 
 ==> TRANSITION"
   `(let* ((initial-key (statecharts::%dereference-key superstate-key ,initial))
-	  (final-key (statecharts::%dereference-key superstate-key ,final))
-	  (trans-obj (statecharts::%t initial-key ,event final-key ,if)))
-     (statecharts::%register-event statechart ,event trans-obj)
-     (statecharts::%register-transition statechart initial-key final-key trans-obj)))
+	  (final-key (statecharts::%dereference-key superstate-key ,final)))
+     (statecharts::%t initial-key ,event final-key ,if)))
 
 (defmacro d (default-state &body body)
   "Returns an object of type DEFAULT-SELECTOR that selects the state
@@ -167,7 +138,7 @@ functions of one variable and will be called with the ENVIRONMENT as
 their parameter.
 
 => ORTHOGONAL"
-  `(%superstate orhtogonal ,name ,state-selector ,default-state
+  `(%superstate orthogonal ,name ,state-selector ,default-state
      ,description ,entry ,exit ,sub-states))
 
 (defmacro c (name (state-selector default-state &key (description "") entry exit)
@@ -198,9 +169,8 @@ NAME. EXIT and ENTRY a functions of one variable and will be called
 with the ENVIRONMENT as their parameter.
 
 => STATE"
-  `(statecharts::%register-state statechart superstate-key ,name 
-				 (statecharts::%s ,name ,description ,entry ,exit
-						  current-selector)))
+  `(statecharts::%s ,name ,description ,entry ,exit
+		    current-selector))
 
 
 (defmacro defstatechart ((name &key (description "")) &body definitions)
@@ -209,7 +179,7 @@ with the ENVIRONMENT as their parameter.
 							      :description ,description))
 	  (superstate-key '())
 	  (current-selector))
-     (progn ,@definitions)
+     (setf (root statechart) (progn ,@definitions))
      (defparameter ,name statechart)
      statechart))
 

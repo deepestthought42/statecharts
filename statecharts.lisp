@@ -5,8 +5,6 @@
 ;;; "statecharts" goes here. Hacks and glory await!
 
 
-(defparameter *default-environment* (make-instance 'environment))
-
 
 (defclass statechart-element ()
   ((description :accessor description :initarg :description
@@ -32,7 +30,8 @@
   (make-hash-table :test #'equal :size *default-hash-table-size*))
 
 (defclass statechart (statechart-element)
-  ((states :accessor states :initarg :states :initform (default-hashtable))
+  ((root :accessor root :initarg :root :initform nil)
+   (states :accessor states :initarg :states :initform (default-hashtable))
    (transitions :accessor transitions :initarg :transitions :initform (default-hashtable))
    (events :accessor events :initarg :events :initform (default-hashtable))))
 
@@ -49,7 +48,10 @@
 		:initform (error "Must initialize final-state."))))
 
 
-(defclass action () ())
+(defclass action ()
+  ((fun :accessor fun :initarg :fun :initform (constantly t))))
+
+
 
 (defclass state (statechart-element)
   ((on-entry :initarg :on-entry

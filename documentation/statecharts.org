@@ -26,6 +26,10 @@ Represents a state change upon receiving an event that is used to label the arro
 ** TODO how to manage broadcasts
 Specifically: How to manage the order of broadcasts.
 
+** TODO different entries into different states
+let's go through this by the different kinds of states --> actually, this should be a
+problem when having flattened the graph
+
 * Definitions 
 ** System
 A regularly interacting or interdependent group of items forming a unified whole [fn:1].
