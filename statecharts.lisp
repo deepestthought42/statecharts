@@ -54,10 +54,13 @@
 (defclass state (statechart-element)
   ((on-entry :initarg :on-entry
 	     :accessor on-entry 
-	     :initform *nothing*)
+	     :initform '())
    (on-exit :initarg :on-exit
 	    :accessor on-exit 
-	    :initform *nothing*)))
+	    :initform '())
+   (transitions :accessor transitions
+		:initarg :transitions
+		:initform '())))
 
 (defclass state-selector (statechart-element)
   ((selected-state :initarg :selected-state :accessor selected-state 

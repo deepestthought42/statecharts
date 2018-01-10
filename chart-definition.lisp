@@ -120,7 +120,8 @@ with the ENVIRONMENT as their parameter.
   `(let* ((statechart (make-instance 'statecharts::statechart :name ,(string name)
 							      :description ,description)))
      (setf (root statechart) (progn ,@definitions)
-	   (states statechart) (get-substates (root statechart)))
+	   (states statechart) (compute-substates (root statechart))
+	   (transitions statechart) (compute-transitions (root statechart) '()))
      (defparameter ,name statechart)
      statechart))
 

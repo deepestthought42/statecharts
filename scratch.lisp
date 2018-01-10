@@ -15,8 +15,8 @@
     (c "Z" (d "A")
       (s "A")
       (s "B"))
-    (-> "hickup" "A" "C")
-    (-> "poo" '("D" "A") '("M" "A"))))
+    (-> "hickup" '("X" "A") '("Y"))
+    (-> "poo" "X" "Z")))
 
 
 (defstatechart (test-1)
@@ -32,7 +32,20 @@
       (c "Z" (d "A")
 	(s "A")
 	(s "B")
-	(s "C")))))
+	(s "C")))
+    (-> "a" "Z" '("G" (:and
+		       ("Y" "A")
+		       ("X" "B"))))))
 
-(get-substates (root test-1))
+(compute-substates (root test-1))
+
+(compute-transitions (root test-1) '())
+
+
+
+
+
+
+
+
 

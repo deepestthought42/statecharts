@@ -1,5 +1,7 @@
 (in-package #:statecharts)
 
+;;; definitions for objects used during parsing / creation of fsm
+
 (defun state-p (obj)
   (typep obj 'state))
 
@@ -7,7 +9,6 @@
 (defclass s ()
   ((key :initarg :key :accessor key 
 	:initform (error "Must initialize key."))))
-
 
 (defclass s-xor (s)
   ((sub-state :initarg :sub-state :accessor sub-state 
@@ -18,31 +19,41 @@
 	       :initform (error "Must initialize sub-states."))))
 
 
+(defclass tr ()
+  ((initial-key :initarg :initial-key :accessor initial-key 
+		:initform (error "Must initialize initial-key."))
+   (final-key :initarg :final-key :accessor final-key 
+	      :initform (error "Must initialize final-key."))
+   (event-key :initarg :event-key :accessor event-key 
+	      :initform (error "Must initialize event-key."))
+   (guard :initarg :guard :accessor guard 
+	  :initform (error "Must initialize guard."))))
 
+;;; parse statecharts
 
-(defmethod get-substates ((s t)) '())
+(defgeneric compute-substates (s))
 
-(defmethod get-substates ((s state))
-  (list (make-instance 's :key (name s))))
+(defmethod compute-substates ((s t)) '())
 
-(defmethod get-substates ((cluster cluster))
-  (let+ (((&slots name elements) cluster))
+(defmethod compute-substates ((s state))
+  (list (make-instance 's
+		       :key (name s))))
+
+(defmethod compute-substates ((cluster cluster))
+  (let+ (((&slots name elements transitions) cluster))
     (iter outer
       (for e in elements)
-      (for sub-states = (get-substates e))
+      (for sub-states = (compute-substates e))
       (iter
 	(for s in sub-states)
 	(in outer
 	    (collect (make-instance 's-xor :key name :sub-state s)))))))
 
-
-
-
-(defmethod get-substates ((ortho orthogonal))
+(defmethod compute-substates ((ortho orthogonal))
   (let+ (((&slots name elements) ortho)
 	 (lst-of-lst-of-substates
 	  (remove-if #'not
-		     (mapcar #'(lambda (s) (get-substates s))
+		     (mapcar #'(lambda (s) (compute-substates s))
 			     elements))))
     (labels ((combine-elements (super-lst) 
 	       (cond
@@ -69,38 +80,77 @@
 ;;; transitions
 
 (defun %dereference-key (superstate key)
-  (labels ((valid-descriptor (desc)
-	     (unless (stringp desc)
-	       (error 'invalid-state-descriptor
-		      :descriptor desc))))
+  (labels ((syntactically-valid-descriptor (desc)
+	     (cond
+	       ((stringp desc) t)
+	       ((symbolp desc) t)
+	       ((and (listp desc)
+		     (equal :and (first desc)))
+		(mapcar #'syntactically-valid-descriptor (cdr desc)))
+	       ((and (listp desc)
+		     (stringp (first desc)))
+		(mapcar #'syntactically-valid-descriptor desc))
+	       (t (error 'invalid-state-descriptor :descriptor desc)))))
     (cond
       ;; (/ "A" "B" "C") references with respect to the root of the tree:
       ;; -> "C" within "B" within "A"
       ((and (listp key) (equal '/ (first key))
-	    (mapcar #'valid-descriptor (cdr key)))
+	    (syntactically-valid-descriptor (cdr key)))
        (cdr key))
       ;; ("A" "B") references within the current super state:
       ;; "B" within "A" within the current superstate
       ((and (listp key)
-	    (mapcar #'valid-descriptor key)
+	    (syntactically-valid-descriptor key)
 	    (or (equal nil superstate)
-		(mapcar #'valid-descriptor superstate)))
+		(syntactically-valid-descriptor superstate)))
        (append superstate key))
       ;; "A" references "A" within the current superstate
-      ((stringp key)
+      ((and (not (listp key))
+	    (syntactically-valid-descriptor key))
        (append superstate (list key)))
       (t (error 'invalid-state-descriptor
 		:descriptor key)))))
 
 
+(defmethod compute-transitions ((s t) super-state) '())
+
+(defun %make-transitions (elements super-state)
+  (iter
+    (for el in elements)
+    (when (typep el 'transition)
+      (collect
+	  (make-instance 'tr
+			 :event-key (event el)
+			 :guard (guard el)
+			 :initial-key
+			 (%dereference-key super-state
+					   (initial-state el))
+			 :final-key
+			 (%dereference-key super-state
+					   (final-state el)))))))
 
 
-
-(defmethod get-transitions ((tr transition)))
+(defmethod compute-transitions ((s cluster) super-state)
+  (let+ (((&slots name elements) s)
+	 (super-state (append super-state (list name)))
+	 (transitions-for-sub-states
+	  (iter
+	    (for el in elements)
+	    (appending (compute-transitions el super-state)))))
+    (append transitions-for-sub-states
+	    (%make-transitions elements super-state))))
 
 
 
 ;;; printing
+
+(defmethod print-object ((obj tr) stream)
+  (print-unreadable-object (obj stream)
+    (format stream "~a --|~a|--> ~a"
+	    (initial-key obj)
+	    (event-key obj)
+	    (final-key obj))))
+
 
 (defmethod print-object ((obj s) stream)
   (print-unreadable-object (obj stream)
