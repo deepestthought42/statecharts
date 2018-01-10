@@ -20,38 +20,10 @@
 		   :guard (if if if (constantly t)))))
 
 
-(defun %s (name description entry exit selector)
+(defun %s (name description entry exit)
   (make-instance 'state :name name :description description
 			:on-entry (if entry entry (constantly t))
-			:selector selector
 			:on-exit (if exit exit (constantly t))))
-
-
-
-(defun %dereference-key (superstate key)
-  (labels ((valid-descriptor (desc)
-	     (unless (stringp desc)
-	       (error 'invalid-state-descriptor
-		      :descriptor desc))))
-    (cond
-      ;; (/ "A" "B" "C") references with respect to the root of the tree:
-      ;; -> "C" within "B" within "A"
-      ((and (listp key) (equal '/ (first key))
-	    (mapcar #'valid-descriptor (cdr key)))
-       (cdr key))
-      ;; ("A" "B") references within the current super state:
-      ;; "B" within "A" within the current superstate
-      ((and (listp key)
-	    (mapcar #'valid-descriptor key)
-	    (or (equal nil superstate)
-		(mapcar #'valid-descriptor superstate)))
-       (append superstate key))
-      ;; "A" references "A" within the current superstate
-      ((stringp key)
-       (append superstate (list key)))
-      (t (error 'invalid-state-descriptor
-		:descriptor key)))))
-
 
 
 
@@ -71,25 +43,15 @@
 ;;;; helper macros
 
 
-(defmacro with-new-superstate (name &body body)
-  `(let ((superstate-key (append superstate-key (list ,name))))
-     (progn ,@body)))
-
-(defmacro with-new-selector (name type &body body)
-  `(let* ((current-selector (make-instance ',type
-			     :selected-state ,name)))
-     (progn ,@body)))
 
 
 (defmacro %superstate (type name state-selector default-state description entry exit sub-states)
-  `(,state-selector
-    ,default-state
-    (with-new-superstate ,name
-      (make-instance ',type :name ,name :description ,description
-			    :on-entry (if ,entry ,entry (constantly t))
-			    :on-exit (if ,exit ,exit (constantly t))
-			    :selector current-selector
-			    :elements (list ,@sub-states)))))
+  `(make-instance ',type :name ,name :description ,description
+			 :on-entry (if ,entry ,entry (constantly t))
+			 :on-exit (if ,exit ,exit (constantly t))
+			 :selector-type ',state-selector
+			 :default-state ,default-state
+			 :elements (list ,@sub-states)))
 
 ;;; statechart definition language
 
@@ -101,26 +63,7 @@ parameter, the statechart ENVIRONMENT and the transition will only
 proceed if IF returns true.
 
 ==> TRANSITION"
-  `(let* ((initial-key (statecharts::%dereference-key superstate-key ,initial))
-	  (final-key (statecharts::%dereference-key superstate-key ,final)))
-     (statecharts::%t initial-key ,event final-key ,if)))
-
-(defmacro d (default-state &body body)
-  "Returns an object of type DEFAULT-SELECTOR that selects the state
-with name DEFAULT-STATE
-
-==> DEFAULT-SELECTOR"
-  `(with-new-selector ,default-state statecharts::default-selector
-     ,@body))
-
-(defmacro h (initial-state &body body)
-  "Returns an object of type HISTORY-SELECTOR that keeps a record and
-selects the last recorded state upon entry. Upon first entry the state
-wih name INITIAL-STATE will be selected.
-
-==> HISTORY-SELECTOR"
-  `(with-new-selector ,initial-state statecharts::history-selector
-     ,@body))
+  `(statecharts::%t ,initial ,event ,final ,if))
 
 
 (defmacro o (name (state-selector default-state &key (description "") entry exit)
@@ -169,17 +112,15 @@ NAME. EXIT and ENTRY a functions of one variable and will be called
 with the ENVIRONMENT as their parameter.
 
 => STATE"
-  `(statecharts::%s ,name ,description ,entry ,exit
-		    current-selector))
+  `(statecharts::%s ,name ,description ,entry ,exit))
 
 
 (defmacro defstatechart ((name &key (description "")) &body definitions)
   (%check-defstatechart-arguments name description definitions)
   `(let* ((statechart (make-instance 'statecharts::statechart :name ,(string name)
-							      :description ,description))
-	  (superstate-key '())
-	  (current-selector))
-     (setf (root statechart) (progn ,@definitions))
+							      :description ,description)))
+     (setf (root statechart) (progn ,@definitions)
+	   (states statechart) (get-substates (root statechart)))
      (defparameter ,name statechart)
      statechart))
 

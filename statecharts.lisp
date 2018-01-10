@@ -26,14 +26,12 @@
 
 (defparameter *default-hash-table-size* 1000)
 
-(defun default-hashtable ()
-  (make-hash-table :test #'equal :size *default-hash-table-size*))
 
 (defclass statechart (statechart-element)
   ((root :accessor root :initarg :root :initform nil)
-   (states :accessor states :initarg :states :initform (default-hashtable))
-   (transitions :accessor transitions :initarg :transitions :initform (default-hashtable))
-   (events :accessor events :initarg :events :initform (default-hashtable))))
+   (states :accessor states :initarg :states :initform '())
+   (transitions :accessor transitions :initarg :transitions :initform '())
+   (events :accessor events :initarg :events :initform '())))
 
 (defclass environment () ())
 
@@ -51,19 +49,15 @@
 (defclass action ()
   ((fun :accessor fun :initarg :fun :initform (constantly t))))
 
-
+(defparameter *nothing* (make-instance 'action))
 
 (defclass state (statechart-element)
   ((on-entry :initarg :on-entry
 	     :accessor on-entry 
-	     :initform (constantly t))
+	     :initform *nothing*)
    (on-exit :initarg :on-exit
 	    :accessor on-exit 
-	    :initform (constantly t))
-   (selector :initarg :selector :accessor selector 
-	     :initform (error "Must initialize selector."))))
-
-
+	    :initform *nothing*)))
 
 (defclass state-selector (statechart-element)
   ((selected-state :initarg :selected-state :accessor selected-state 
@@ -79,7 +73,11 @@
 
 
 (defclass cluster (state)
-  ((elements :initarg :elements :accessor elements 
+  ((selector-type :initarg :selector-type :accessor selector-type 
+		  :initform (error "Must initialize selector-type."))
+   (default-state :initarg :default-state :accessor default-state 
+		  :initform (error "Must initialize default-state."))
+   (elements :initarg :elements :accessor elements 
 	     :initform (error "Must initialize elements."))))
 
 (defclass orthogonal (cluster) ())

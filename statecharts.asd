@@ -11,6 +11,6 @@
   :components ((:file "package")
 	       (:file "api")
                (:file "statecharts")
-	       (:file "chart-definition")
-	       (:file "compose")))
+	       (:file "compose")
+	       (:file "chart-definition")))
 

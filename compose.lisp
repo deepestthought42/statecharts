@@ -1,33 +1,5 @@
 (in-package #:statecharts)
 
-#|
-
-(defun %register-transition (statechart initial-key final-key transition-object)
-  (let+ (((&slots transitions) statechart)
-	 (key (append initial-key '(:->) final-key))
-	 (existing (gethash key transitions)))
-    (if existing (error 'transition-exists :key key))
-    (setf (gethash key transitions) transition-object))
-  transition-object)
-
-
-(defun %register-state (statechart superstate state-name state-object)
-  (let+ (((&slots states) statechart)
-	 (key (%dereference-key superstate state-name))
-	 (existing (gethash key states)))
-    (if existing (error 'state-exists :key key))
-    (setf (gethash key states) state-object)
-    state-object))
-
-(defun %register-event (statechart event-name transition-object)
-  (let+ (((&slots events) statechart)
-	 (event (alexandria:if-let (existing (gethash event-name events))
-		  existing
-		  (setf (gethash event-name events)
-			(make-instance 'event :name event-name)))))
-    (push transition-object (registered-transitions event))))
-
-|#
 (defun state-p (obj)
   (typep obj 'state))
 
@@ -94,6 +66,41 @@
       (combine-elements lst-of-lst-of-substates))))
 
 
+;;; transitions
+
+(defun %dereference-key (superstate key)
+  (labels ((valid-descriptor (desc)
+	     (unless (stringp desc)
+	       (error 'invalid-state-descriptor
+		      :descriptor desc))))
+    (cond
+      ;; (/ "A" "B" "C") references with respect to the root of the tree:
+      ;; -> "C" within "B" within "A"
+      ((and (listp key) (equal '/ (first key))
+	    (mapcar #'valid-descriptor (cdr key)))
+       (cdr key))
+      ;; ("A" "B") references within the current super state:
+      ;; "B" within "A" within the current superstate
+      ((and (listp key)
+	    (mapcar #'valid-descriptor key)
+	    (or (equal nil superstate)
+		(mapcar #'valid-descriptor superstate)))
+       (append superstate key))
+      ;; "A" references "A" within the current superstate
+      ((stringp key)
+       (append superstate (list key)))
+      (t (error 'invalid-state-descriptor
+		:descriptor key)))))
+
+
+
+
+
+(defmethod get-transitions ((tr transition)))
+
+
+
+;;; printing
 
 (defmethod print-object ((obj s) stream)
   (print-unreadable-object (obj stream)
