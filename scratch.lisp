@@ -39,20 +39,9 @@
 
 (compute-substates (root test-1))
 
-(let ((key '("H" "G")))
-  (remove-if-not #'(lambda (s)
-		     (is-default-state s :of-state-key key))
-		 (states test-1)))
- ; => (#<(H (G (X A)∧(Y B)∧(Z B)))>)
 
-
-(let ((key '("test")))
-  (remove-if-not #'(lambda (s)
-		     (is-default-state s :of-state-key key))
-		 (states test-states)))
-
-
-(compute-transitions (root test-1) '())
+(get-partial-default-state (states test-1)
+			   '("H" ("G" ("Z" "C"))))
 
 
 
@@ -62,3 +51,9 @@
 
 
 
+
+(remove-if-not #'is-default-state (states test-1))
+
+
+
+(cadr '("G" "H"))

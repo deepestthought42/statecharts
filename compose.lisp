@@ -45,14 +45,16 @@
   (equal (key state)
 	 (cond
 	   ((listp key) (car key))
-	   (t key))))
+	   ((stringp key) key)
+	   (t (error 'invalid-state-descriptor :descriptor key)))))
 
 (defmethod key-describes-state ((s s) key)
   (%compare-key s key))
 
 (defmethod key-describes-state ((s s-xor) key)
-  (and (%compare-key s (car key))
-       (if (not (cadr key)) ;; key finished ?
+  (and (%compare-key s key)
+       (if (or (stringp key)
+	       (not (cadr key)))	;; key finished ?
 	   t
 	   (key-describes-state (sub-state s)
 				(cadr key)))))
@@ -63,10 +65,7 @@
 	       (for sub-s in (sub-states s))
 	       (if (key-describes-state sub-s k)
 		   (return t)))))
-    (and (%compare-key s (cond
-			   ((listp key) (car key))
-			   ((stringp key) key)
-			   (t (error 'invalid-state-descriptor :descriptor key))))
+    (and (%compare-key s key)
 	 (cond
 	   ;; key finished ?
 	   ((or (not key)
@@ -75,12 +74,15 @@
 		(stringp key))
 	    t)
 	   ;; need :and next
-	   ((equal :and (caadr key))
+	   ((and (listp key)
+		 (equal :and (caadr key)))
 	    (reduce #'(lambda (a b)
 			  (and a b))
 		      (cdadr key)
 		      :key #'is-sub-state))
-	   (t (error "?"))))))
+	   ((listp key)
+	    (is-sub-state (cadr key)))
+	   (t (error 'invalid-state-descriptor :descriptor key))))))
 
 
 ;;; parse statecharts
@@ -226,7 +228,7 @@
     (when sub-states
       (print-s (car sub-states) stream)
       (map nil #'(lambda (s)
-		   (format stream "∧")
+	   (format stream "∧")
 		   (print-s s stream))
 	   (cdr sub-states))))
   (format stream ")"))
@@ -237,67 +239,72 @@
 
 ;;; default states
 
-(defmethod is-default-state ((s t) &key of-state-key)
-  (declare (ignore of-state-key))
-  nil)
+(defmethod is-default-state ((s t)) nil)
 
 
-(defmethod is-default-state ((s s) &key of-state-key)
-  (cond
-    ;; it is a leaf state, so we just check if the key, if given, is
-    ;; correct
-    (of-state-key (key-describes-state s of-state-key))
-    (t t)))
+(defmethod is-default-state ((s s)) t)
 
 
-(defmethod is-default-state ((s s-xor) &key of-state-key)
+(defmethod is-default-state ((s s-xor))
   (let+ (((&slots default-state sub-state) s))
     (cond
-      ;; so, we have a state-key to compare to 
-      (of-state-key
-       (and
-	;; make sure this is a state corresponding to of-state-key
-	(key-describes-state s of-state-key)
-	;; make sure it is the default state
-	(string= (key sub-state) default-state)
-	;; make sure it's sub-states are defaults states too
-	(is-default-state sub-state
-			  :of-state-key
-			  (cadr of-state-key))))
-      ;; no state key, ==> t if sub state is default state
       ((string= (key sub-state) default-state)
        (is-default-state sub-state))
       ;; no default state
       (t nil))))
 
 
-(defmethod is-default-state ((s s-and) &key of-state-key)
-  (labels ((substates-are-default ()
-	     (reduce #'(lambda (a b)
-			 (and a b))
-		     (sub-states s)
-		     :key #'(lambda (s)
-			      (is-default-state
-			       s :of-state-key
-			       (cond
-				 ;; key can be leaf 
-				 ((listp of-state-key) (cadr of-state-key))
-				 ((stringp of-state-key) '())
-				 (t (error 'invalid-state-descriptor
-					   :key of-state-key))))))))
-    (cond
-      ;; so, we have a state-key to compare to 
-      (of-state-key
-       (and
-	;; make sure this is a state corresponding to of-state-key
-	(key-describes-state s of-state-key)
-	;; make sure it's sub-states are defaults states too
-	(substates-are-default)))
-      ;; no state key, ==> t if S is default state
-      (t (substates-are-default)))))
+(defmethod is-default-state ((s s-and))
+  (reduce #'(lambda (a b)
+	      (and a b))
+	  (sub-states s)
+	  :key #'is-default-state))
 
 
 
+;;; these methods assume states S that correspond to the key given
+
+(defgeneric %walk-state (s key)
+  (:method ((s t) key) nil))
+
+(defmethod %walk-state ((s s) key) t)
+
+(defmethod %walk-state ((s s-xor) key)
+  (if (cdr key)
+      (%walk-state (sub-state s) (cadr key))
+      (is-default-state s)))
 
 
+(defmethod %walk-state ((s s-and) key)
+  (labels ((find-key (sub-s key-list)
+	     (iter
+	       (for k in key-list)
+	       (if (key-describes-state sub-s k)
+		   (return k)))))
+    (let+ (((&slots sub-states) s)
+	   (keys (cond
+		   ((and (listp (cadr key))
+			 (equal :and (caadr key)))
+		    (cdadr key))
+		   ((and (listp (cadr key))
+			 (stringp (caadr key)))
+		    (cdr key))
+		   (t (error 'invalid-state-descriptor :key key)))))
+      ;; given the key definition it can be of one of the following
+      ;; forms:
+      ;; ("X" (:and ("Z" ..) ..))
+      ;; ("X" ("Z" ..))
+      (iter
+	(for sub-s in sub-states)
+	(for k = (find-key sub-s keys))
+	(cond
+	  ((and k (not (%walk-state sub-s k))) (return nil))
+	  ((and (not k) (not (is-default-state sub-s))) (return nil)))
+	(finally (return t))))))
 
+(defun get-partial-default-state (lst-of-states state-key)
+  (let+ ((described-states
+	  (remove-if-not #'(lambda (s)
+			     (key-describes-state s state-key))
+			 lst-of-states)))
+    (remove-if-not #'(lambda (s) (%walk-state s state-key)) described-states)))
