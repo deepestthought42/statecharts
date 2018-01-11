@@ -1,5 +1,7 @@
 (in-package #:statecharts)
 
+(declaim (optimize (debug 3) (speed 0) (space 0)))
+
 ;;; definitions for objects used during parsing / creation of fsm
 
 (defun state-p (obj)
@@ -10,9 +12,12 @@
   ((key :initarg :key :accessor key 
 	:initform (error "Must initialize key."))))
 
+
 (defclass s-xor (s)
   ((sub-state :initarg :sub-state :accessor sub-state 
-	      :initform (error "Must initialize sub-state."))))
+	      :initform (error "Must initialize sub-state."))
+   (default-state :initarg :default-state :accessor default-state 
+		  :initform (error "Must initialize default-state."))))
 
 (defclass s-and (s)
   ((sub-states :initarg :sub-states :accessor sub-states 
@@ -29,6 +34,55 @@
    (guard :initarg :guard :accessor guard 
 	  :initform (error "Must initialize guard."))))
 
+
+;;; state to key comparison
+
+(defgeneric key-describes-state (s key))
+
+(defmethod key-describes-state ((s t) key) nil)
+
+(defun %compare-key (state key)
+  (equal (key state)
+	 (cond
+	   ((listp key) (car key))
+	   (t key))))
+
+(defmethod key-describes-state ((s s) key)
+  (%compare-key s key))
+
+(defmethod key-describes-state ((s s-xor) key)
+  (and (%compare-key s (car key))
+       (if (not (cadr key)) ;; key finished ?
+	   t
+	   (key-describes-state (sub-state s)
+				(cadr key)))))
+
+(defmethod key-describes-state ((s s-and) key)
+  (labels ((is-sub-state (k)
+	     (iter
+	       (for sub-s in (sub-states s))
+	       (if (key-describes-state sub-s k)
+		   (return t)))))
+    (and (%compare-key s (cond
+			   ((listp key) (car key))
+			   ((stringp key) key)
+			   (t (error 'invalid-state-descriptor :descriptor key))))
+	 (cond
+	   ;; key finished ?
+	   ((or (not key)
+		;; if a string is given, the comparison has been done
+		;; in %compare-key
+		(stringp key))
+	    t)
+	   ;; need :and next
+	   ((equal :and (caadr key))
+	    (reduce #'(lambda (a b)
+			  (and a b))
+		      (cdadr key)
+		      :key #'is-sub-state))
+	   (t (error "?"))))))
+
+
 ;;; parse statecharts
 
 (defgeneric compute-substates (s))
@@ -40,14 +94,15 @@
 		       :key (name s))))
 
 (defmethod compute-substates ((cluster cluster))
-  (let+ (((&slots name elements transitions) cluster))
+  (let+ (((&slots name elements transitions default-state) cluster))
     (iter outer
       (for e in elements)
       (for sub-states = (compute-substates e))
       (iter
 	(for s in sub-states)
 	(in outer
-	    (collect (make-instance 's-xor :key name :sub-state s)))))))
+	    (collect (make-instance 's-xor :key name :sub-state s
+				    :default-state default-state)))))))
 
 (defmethod compute-substates ((ortho orthogonal))
   (let+ (((&slots name elements) ortho)
@@ -60,7 +115,7 @@
 		 ((not (cdr super-lst))
 		  (mapcar #'(lambda (s)
 			      (make-instance 's-and :sub-states (list s)
-					     :key name))
+						    :key name))
 			  (car super-lst)))
 		 (t
 		  (let ((states-1 (car super-lst))
@@ -176,6 +231,70 @@
 	   (cdr sub-states))))
   (format stream ")"))
 
+
+
+
+
+;;; default states
+
+(defmethod is-default-state ((s t) &key of-state-key)
+  (declare (ignore of-state-key))
+  nil)
+
+
+(defmethod is-default-state ((s s) &key of-state-key)
+  (cond
+    ;; it is a leaf state, so we just check if the key, if given, is
+    ;; correct
+    (of-state-key (key-describes-state s of-state-key))
+    (t t)))
+
+
+(defmethod is-default-state ((s s-xor) &key of-state-key)
+  (let+ (((&slots default-state sub-state) s))
+    (cond
+      ;; so, we have a state-key to compare to 
+      (of-state-key
+       (and
+	;; make sure this is a state corresponding to of-state-key
+	(key-describes-state s of-state-key)
+	;; make sure it is the default state
+	(string= (key sub-state) default-state)
+	;; make sure it's sub-states are defaults states too
+	(is-default-state sub-state
+			  :of-state-key
+			  (cadr of-state-key))))
+      ;; no state key, ==> t if sub state is default state
+      ((string= (key sub-state) default-state)
+       (is-default-state sub-state))
+      ;; no default state
+      (t nil))))
+
+
+(defmethod is-default-state ((s s-and) &key of-state-key)
+  (labels ((substates-are-default ()
+	     (reduce #'(lambda (a b)
+			 (and a b))
+		     (sub-states s)
+		     :key #'(lambda (s)
+			      (is-default-state
+			       s :of-state-key
+			       (cond
+				 ;; key can be leaf 
+				 ((listp of-state-key) (cadr of-state-key))
+				 ((stringp of-state-key) '())
+				 (t (error 'invalid-state-descriptor
+					   :key of-state-key))))))))
+    (cond
+      ;; so, we have a state-key to compare to 
+      (of-state-key
+       (and
+	;; make sure this is a state corresponding to of-state-key
+	(key-describes-state s of-state-key)
+	;; make sure it's sub-states are defaults states too
+	(substates-are-default)))
+      ;; no state key, ==> t if S is default state
+      (t (substates-are-default)))))
 
 
 

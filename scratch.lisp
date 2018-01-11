@@ -20,16 +20,16 @@
 
 
 (defstatechart (test-1)
-  (c "H" (d "A")
+  (c "H" (d "G")
     (s "Z")
     (o "G" (d "X")
       (c "X" (d "A")
 	(s "A")
 	(s "B"))
-      (c "Y" (d "A")
+      (c "Y" (d "B")
 	(s "A")
 	(s "B"))
-      (c "Z" (d "A")
+      (c "Z" (d "B")
 	(s "A")
 	(s "B")
 	(s "C")))
@@ -38,6 +38,19 @@
 		       ("X" "B"))))))
 
 (compute-substates (root test-1))
+
+(let ((key '("H" "G")))
+  (remove-if-not #'(lambda (s)
+		     (is-default-state s :of-state-key key))
+		 (states test-1)))
+ ; => (#<(H (G (X A)∧(Y B)∧(Z B)))>)
+
+
+(let ((key '("test")))
+  (remove-if-not #'(lambda (s)
+		     (is-default-state s :of-state-key key))
+		 (states test-states)))
+
 
 (compute-transitions (root test-1) '())
 
