@@ -21,34 +21,51 @@
 
 (defstatechart (test-1)
   (c "H" (d "G")
-    (s "Z")
     (o "G" (d "X")
       (c "X" (d "A")
 	(s "A")
 	(s "B"))
       (c "Y" (d "B")
 	(s "A")
-	(s "B"))
+	(s "B")
+;;	(-> "alpha" "B" "A")
+;;	(-> "beta" "A" "B")
+	)
       (c "Z" (d "B")
 	(s "A")
 	(s "B")
-	(s "C")))
-    (-> "a" "Z" '("G" (:and
-		       ("Y" "A")
-		       ("X" "B"))))))
+	(s "C")
+;;	(-> "alpha" "A" "B")
+;;	(-> "beta" "B" "C")
+;;	(-> "gamma" "C" "A")
+	(-> "epsilon" "C" '(/ "H" ("G" ("X" "A"))))))
+    ;; (-> "alpha" "Z" '("G" (:and
+    ;; 			   ("Y" "A")
+    ;; 			   ("X" "B"))))
+    ))
 
 (compute-substates (root test-1))
 
 
 (get-partial-default-state (states test-1)
-			   '("H" ("G" ("Z" "C"))))
+			   '("H" ("G" ("X" "A"))))
 
 
 
 
 
+(let ((state-chart test-1))
+  (find-final-states-for-transitions (states state-chart)
+				     (gather-events-from-transitions
+				      (transitions state-chart))))
 
+(find-events/transition-originating-from-state s (transitions test-1)))
+	(states test-1))
 
+(find-final-states-for-transitions (states test-1)
+				   (transitions test-1))
+
+(get-partial-default-state (states test-1) '("H" ("G" ("X A"))))
 
 
 
@@ -56,4 +73,4 @@
 
 
 
-(cadr '("G" "H"))
+

@@ -5,8 +5,9 @@
   :author "Your Name <your.name@example.com>"
   :license "Specify license here"
   :depends-on (#:iterate
-               #:alexandria
-               #:let-plus)
+		#:alexandria
+		#:let-plus
+		#:group-by)
   :serial t
   :components ((:file "package")
 	       (:file "api")

@@ -25,6 +25,15 @@
 			 (offending-code condition)))))         	                    
   (:documentation "doc"))
 
+(define-condition invalid-transition (program-error)
+  ((initial-key :accessor initial-key :initarg :initial-key :initform "")
+   (event-key :accessor event-key :initarg :event-key :initform ""))
+  (:report (lambda (c stream)
+	     (format stream "Couldn't compute transition for state: ~a with event: ~a"
+		     (initial-key c)
+		     (transition-key c))))         	                    
+  (:documentation "doc"))
+
 
 
 

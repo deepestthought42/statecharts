@@ -9,8 +9,9 @@
 
 
 (defclass s ()
-  ((key :initarg :key :accessor key 
-	:initform (error "Must initialize key."))))
+  ((key :initarg :key :accessor key :initform (error "Must initialize key."))
+   (on-entry :accessor on-entry :initarg :on-entry :initform '())
+   (on-exit :accessor on-exit :initarg :on-exit :initform '())))
 
 
 (defclass s-xor (s)
@@ -48,7 +49,7 @@
 	   ((stringp key) key)
 	   (t (error 'invalid-state-descriptor :descriptor key)))))
 
-(defmethod key-describes-state ((s s) key)
+(defmethod key-describes-state ((s s) keyA)
   (%compare-key s key))
 
 (defmethod key-describes-state ((s s-xor) key)
@@ -147,7 +148,14 @@
 	       ((and (listp desc)
 		     (stringp (first desc)))
 		(mapcar #'syntactically-valid-descriptor desc))
-	       (t (error 'invalid-state-descriptor :descriptor desc)))))
+	       (t (error 'invalid-state-descriptor :descriptor desc))))
+	   (construct-new-key (key)
+	     (iter
+	       (with inner-most = (car (subseq key (1- (length key)))))
+	       (with rest = (subseq key 0 (1- (length key))))
+	       (for el in (reverse (append superstate rest)))
+	       (for k initially inner-most then (list el k))
+	       (finally (return k)))))
     (cond
       ;; (/ "A" "B" "C") references with respect to the root of the tree:
       ;; -> "C" within "B" within "A"
@@ -160,13 +168,17 @@
 	    (syntactically-valid-descriptor key)
 	    (or (equal nil superstate)
 		(syntactically-valid-descriptor superstate)))
-       (append superstate key))
+       (construct-new-key key))
       ;; "A" references "A" within the current superstate
       ((and (not (listp key))
 	    (syntactically-valid-descriptor key))
-       (append superstate (list key)))
+       (construct-new-key (list key)))
       (t (error 'invalid-state-descriptor
 		:descriptor key)))))
+
+
+
+
 
 
 (defmethod compute-transitions ((s t) super-state) '())
@@ -308,3 +320,47 @@
 			     (key-describes-state s state-key))
 			 lst-of-states)))
     (remove-if-not #'(lambda (s) (%walk-state s state-key)) described-states)))
+
+;;; accumulate events
+
+(defun gather-events-from-transitions (transitions)
+  (let+ ((table (make-hash-table :test 'equal)))
+    (map nil #'(lambda (tr)
+		 (if (gethash (event-key tr) table)
+		     (push tr (gethash (event-key tr) table))
+		     (setf (gethash (event-key tr) table) (list tr))))
+	 transitions)
+    table))
+
+
+(defun set-transition (initial-state event-key final-states))
+
+
+(defun get-final-state (states transitions)
+  (let+ ((len (length transitions)))
+    (case len
+      (0 (error "This shouldn't happen."))
+      (1 (get-partial-default-state states (final-key (car transitions))))
+      (t (error "not implemented.")))))
+
+
+
+
+
+
+(defun find-final-states-for-transitions (states transitions)
+  (iter outer
+    (for s in states)
+    ;; for every state s
+    (iter
+      ;; for every event-key and transitions originating in s
+      (for ev.transitions
+	   in (find-events/transition-originating-from-state s transitions))
+      (for ev = (car ev.transitions))
+      (for trans = (cdr ev.transitions))
+      (when trans
+	(in outer (collect
+		      (list s '-> (get-final-state states trans))))))))
+
+
+

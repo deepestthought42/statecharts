@@ -25,5 +25,6 @@
    #:c
    #:o
    #:defstatechart
-   #:s))
+   #:s
+   #:invalid-transition))
 
