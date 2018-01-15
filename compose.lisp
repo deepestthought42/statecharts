@@ -49,7 +49,7 @@
 	   ((stringp key) key)
 	   (t (error 'invalid-state-descriptor :descriptor key)))))
 
-(defmethod key-describes-state ((s s) keyA)
+(defmethod key-describes-state ((s s) key)
   (%compare-key s key))
 
 (defmethod key-describes-state ((s s-xor) key)
@@ -333,34 +333,45 @@
     table))
 
 
-(defun set-transition (initial-state event-key final-states))
+(defun set-transition (initial-state event-key final-state))
+
+
+(defun sort-transitions ())
 
 
 (defun get-final-state (states transitions)
-  (let+ ((len (length transitions)))
-    (case len
-      (0 (error "This shouldn't happen."))
-      (1 (get-partial-default-state states (final-key (car transitions))))
-      (t (error "not implemented.")))))
-
-
-
+  (let+ ((len (length transitions))
+	 ((&values key final-state)
+	  (case len
+	    (0 (error "This shouldn't happen."))
+	    (1 (let ((key (final-key (car transitions))))
+		 (values key (get-partial-default-state states key))))
+	    (t (error "not implemented.")))))
+    (if final-state
+	final-state
+	(error 'invalid-state-descriptor :descriptor key))))
 
 
 
 (defun find-final-states-for-transitions (states transitions)
-  (iter outer
-    (for s in states)
-    ;; for every state s
-    (iter
-      ;; for every event-key and transitions originating in s
-      (for ev.transitions
-	   in (find-events/transition-originating-from-state s transitions))
-      (for ev = (car ev.transitions))
-      (for trans = (cdr ev.transitions))
-      (when trans
-	(in outer (collect
-		      (list s '-> (get-final-state states trans))))))))
+  (labels ((find-events/transition-originating-from-state (s)
+	     (group-by:group-by (remove-if-not
+				 #'(lambda (tr)
+				     (key-describes-state s (initial-key tr)))
+				 transitions)
+				:key #'event-key :value #'identity)))
+    (iter outer
+      (for s in states)
+      ;; for every state s
+      (iter
+	;; for every event-key and transitions originating in s
+	(for ev.transitions
+	     in (find-events/transition-originating-from-state s))
+	(for ev = (car ev.transitions))
+	(for trans = (cdr ev.transitions))
+	(when trans
+	  (in outer
+	      (set-transition s ev (get-final-state states trans))))))))
 
 
 

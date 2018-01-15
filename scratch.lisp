@@ -44,13 +44,6 @@
     ;; 			   ("X" "B"))))
     ))
 
-(compute-substates (root test-1))
-
-
-(get-partial-default-state (states test-1)
-			   '("H" ("G" ("X" "A"))))
-
-
 
 
 
@@ -59,13 +52,15 @@
 				     (gather-events-from-transitions
 				      (transitions state-chart))))
 
-(find-events/transition-originating-from-state s (transitions test-1)))
-	(states test-1))
+
 
 (find-final-states-for-transitions (states test-1)
 				   (transitions test-1))
 
-(get-partial-default-state (states test-1) '("H" ("G" ("X A"))))
+
+
+
+
 
 
 
