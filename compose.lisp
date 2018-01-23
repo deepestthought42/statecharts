@@ -10,6 +10,8 @@
 
 (defclass s ()
   ((key :initarg :key :accessor key :initform (error "Must initialize key."))
+   (defining-state :initarg :defining-state :accessor defining-state 
+		   :initform (error "Must initialize defining-state."))
    (on-entry :accessor on-entry :initarg :on-entry :initform '())
    (on-exit :accessor on-exit :initarg :on-exit :initform '())))
 
@@ -40,25 +42,23 @@
 
 (defgeneric key-describes-state (s key))
 
-(defmethod key-describes-state ((s t) key) nil)
-
-(defun %compare-key (state key)
-  (equal (key state)
-	 (cond
-	   ((listp key) (car key))
-	   ((stringp key) key)
-	   (t (error 'invalid-state-descriptor :descriptor key)))))
+(defmethod key-describes-state ((s t) key)
+  ;; 
+  nil)
 
 (defmethod key-describes-state ((s s) key)
-  (%compare-key s key))
+  (string= (key s) (state-name key)))
 
 (defmethod key-describes-state ((s s-xor) key)
-  (and (%compare-key s key)
-       (if (or (stringp key)
-	       (not (cadr key)))	;; key finished ?
-	   t
-	   (key-describes-state (sub-state s)
-				(cadr key)))))
+  (cond
+    ;; key and state-name have to match as well as the type of key
+    ((not (and (string= (key s) (state-name key))
+	       (typep key 'or-key)))
+     nil)
+    ;; the key matches but doesn't specify any sub-states -> match
+    ((not (sub-state key)) t)
+    ;; the key still matches and specifies sub-states -> test substate
+    (t (key-describes-state (sub-state s) (sub-state key)))))
 
 (defmethod key-describes-state ((s s-and) key)
   (labels ((is-sub-state (k)
@@ -66,24 +66,17 @@
 	       (for sub-s in (sub-states s))
 	       (if (key-describes-state sub-s k)
 		   (return t)))))
-    (and (%compare-key s key)
-	 (cond
-	   ;; key finished ?
-	   ((or (not key)
-		;; if a string is given, the comparison has been done
-		;; in %compare-key
-		(stringp key))
-	    t)
-	   ;; need :and next
-	   ((and (listp key)
-		 (equal :and (caadr key)))
-	    (reduce #'(lambda (a b)
-			  (and a b))
-		      (cdadr key)
-		      :key #'is-sub-state))
-	   ((listp key)
-	    (is-sub-state (cadr key)))
-	   (t (error 'invalid-state-descriptor :descriptor key))))))
+    (cond
+      ;; key and state-name have to match as well as the type of key
+      ((not (and (string= (key s) (state-name key))
+		 (typep key 'and-key)))
+       nil)
+      ;; the key doesn't specify any substates, so all good
+      ((not (sub-states key)) t)
+      ;; key matches and we have substates, so compare them one be one
+      (t (reduce #'(lambda (a b) (and a b))
+		 (sub-states key)
+		 :key #'is-sub-state)))))
 
 
 ;;; parse statecharts
@@ -93,8 +86,7 @@
 (defmethod compute-substates ((s t)) '())
 
 (defmethod compute-substates ((s state))
-  (list (make-instance 's
-		       :key (name s))))
+  (list (make-instance 's :key (name s) :defining-state s)))
 
 (defmethod compute-substates ((cluster cluster))
   (let+ (((&slots name elements transitions default-state) cluster))
@@ -105,6 +97,7 @@
 	(for s in sub-states)
 	(in outer
 	    (collect (make-instance 's-xor :key name :sub-state s
+				    :defining-state cluster
 				    :default-state default-state)))))))
 
 (defmethod compute-substates ((ortho orthogonal))
@@ -118,6 +111,7 @@
 		 ((not (cdr super-lst))
 		  (mapcar #'(lambda (s)
 			      (make-instance 's-and :sub-states (list s)
+						    :defining-state ortho
 						    :key name))
 			  (car super-lst)))
 		 (t
@@ -128,6 +122,7 @@
 		      (appending
 		       (mapcar #'(lambda (s-n)
 				   (make-instance 's-and :key name
+							 :defining-state ortho
 							 :sub-states
 							 (append (list s-1)
 								 (sub-states s-n))))
@@ -136,45 +131,6 @@
 
 
 ;;; transitions
-
-(defun %dereference-key (superstate key)
-  (labels ((syntactically-valid-descriptor (desc)
-	     (cond
-	       ((stringp desc) t)
-	       ((symbolp desc) t)
-	       ((and (listp desc)
-		     (equal :and (first desc)))
-		(mapcar #'syntactically-valid-descriptor (cdr desc)))
-	       ((and (listp desc)
-		     (stringp (first desc)))
-		(mapcar #'syntactically-valid-descriptor desc))
-	       (t (error 'invalid-state-descriptor :descriptor desc))))
-	   (construct-new-key (key)
-	     (iter
-	       (with inner-most = (car (subseq key (1- (length key)))))
-	       (with rest = (subseq key 0 (1- (length key))))
-	       (for el in (reverse (append superstate rest)))
-	       (for k initially inner-most then (list el k))
-	       (finally (return k)))))
-    (cond
-      ;; (/ "A" "B" "C") references with respect to the root of the tree:
-      ;; -> "C" within "B" within "A"
-      ((and (listp key) (equal '/ (first key))
-	    (syntactically-valid-descriptor (cdr key)))
-       (cdr key))
-      ;; ("A" "B") references within the current super state:
-      ;; "B" within "A" within the current superstate
-      ((and (listp key)
-	    (syntactically-valid-descriptor key)
-	    (or (equal nil superstate)
-		(syntactically-valid-descriptor superstate)))
-       (construct-new-key key))
-      ;; "A" references "A" within the current superstate
-      ((and (not (listp key))
-	    (syntactically-valid-descriptor key))
-       (construct-new-key (list key)))
-      (t (error 'invalid-state-descriptor
-		:descriptor key)))))
 
 
 
@@ -321,6 +277,19 @@
 			 lst-of-states)))
     (remove-if-not #'(lambda (s) (%walk-state s state-key)) described-states)))
 
+;;; graph of states
+
+(defclass node ()
+  ((name :initarg :name :accessor name 
+	 :initform (error "Must initialize name."))
+   (default :initarg :default :accessor default 
+	    :initform (error "Must initialize default."))
+   (nodes :accessor nodes :initarg :nodes :initform '())))
+
+
+(defgeneric compute-graph (el key list-of-states))
+
+
 ;;; accumulate events
 
 (defun gather-events-from-transitions (transitions)
@@ -336,7 +305,17 @@
 (defun set-transition (initial-state event-key final-state))
 
 
-(defun sort-transitions ())
+
+(defun described-by-final-keys? (states keys)
+  (iter
+    (for k in keys)
+    (for ss initially states
+	 then (remove-if-not #'(lambda (s)
+				 (key-describes-state s k))
+			     ss))
+    (until (not ss))
+    (finally (return ss))))
+
 
 
 (defun get-final-state (states transitions)
@@ -346,7 +325,9 @@
 	    (0 (error "This shouldn't happen."))
 	    (1 (let ((key (final-key (car transitions))))
 		 (values key (get-partial-default-state states key))))
-	    (t (error "not implemented.")))))
+	    (t (progn
+		 (break)
+		 (error "not implemented."))))))
     (if final-state
 	final-state
 	(error 'invalid-state-descriptor :descriptor key))))

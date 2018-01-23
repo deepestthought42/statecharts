@@ -28,37 +28,55 @@
       (c "Y" (d "B")
 	(s "A")
 	(s "B")
-;;	(-> "alpha" "B" "A")
-;;	(-> "beta" "A" "B")
+	(-> "alpha" "B" "A")
+	(-> "beta" "A" "B")
 	)
       (c "Z" (d "B")
 	(s "A")
 	(s "B")
 	(s "C")
 ;;	(-> "alpha" "A" "B")
-;;	(-> "beta" "B" "C")
-;;	(-> "gamma" "C" "A")
+	(-> "beta" "B" "C")
+	(-> "gamma" "C" "A")
 	(-> "epsilon" "C" '(/ "H" ("G" ("X" "A"))))))
-    ;; (-> "alpha" "Z" '("G" (:and
-    ;; 			   ("Y" "A")
-    ;; 			   ("X" "B"))))
-    ))
+    (-> "alpha" "Z" '("G" (:and
+    			   ("Y" "A")
+    			   ("X" "B"))))))
+
+
+
+(let ((key (make-key '("H" "G" ("Y" "A")) (root test-1))))
+  (remove-if-not #'(lambda (s) (key-describes-state s key)) (states test-1)))
 
 
 
 
-(let ((state-chart test-1))
-  (find-final-states-for-transitions (states state-chart)
-				     (gather-events-from-transitions
-				      (transitions state-chart))))
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 (find-final-states-for-transitions (states test-1)
 				   (transitions test-1))
 
+(remove-if-not #'is-default-state
+	       (remove-if-not #'(lambda (s) (key-describes-state s ))
+			      (remove-if-not #'(lambda (s) (key-describes-state s ))
+					     (states test-1))))
 
 
+(root test-1)
+
+(described-by-final-keys? (states test-1) '(("H" ("G" ("Y" "B"))) ("H" ("G" ("Z" "C")))))
 
 
 

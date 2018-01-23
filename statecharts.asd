@@ -7,11 +7,13 @@
   :depends-on (#:iterate
 		#:alexandria
 		#:let-plus
-		#:group-by)
+		#:group-by
+		#:parachute)
   :serial t
   :components ((:file "package")
 	       (:file "api")
-               (:file "statecharts")
+	       (:file "statecharts")
 	       (:file "compose")
+	       (:file "key")
 	       (:file "chart-definition")))
 
