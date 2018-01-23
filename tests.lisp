@@ -43,16 +43,16 @@
 			       ("X" "B")))))))))
 
 
-(parachute:define-test make-keys
+(parachute:define-test make-state-name
   :depends-on (chart-definition)
 
-  (parachute:finish (make-key '("test") (root test-chart-1)))
-  (parachute:finish (make-key '("test" "X" "B") (root test-chart-1)))
+  (parachute:finish (make-state-name '("test") (root test-chart-1)))
+  (parachute:finish (make-state-name '("test" "X" "B") (root test-chart-1)))
 
-  (parachute:fail (make-key '("H" "G") (root test-chart-1)))
-  (parachute:finish (make-key '("H" "G") (root test-chart-2)))
-  (parachute:finish (make-key '("H" "G" ("X" "A")) (root test-chart-2)))
-  (parachute:fail (make-key '("H" "G" ("X" "A") ("X" "B")) (root test-chart-2))))
+  (parachute:fail (make-state-name '("H" "G") (root test-chart-1)))
+  (parachute:finish (make-state-name '("H" "G") (root test-chart-2)))
+  (parachute:finish (make-state-name '("H" "G" ("X" "A")) (root test-chart-2)))
+  (parachute:fail (make-state-name '("H" "G" ("X" "A") ("X" "B")) (root test-chart-2))))
 
 
-(parachute:test 'make-keys)
+(parachute:test 'make-state-name)

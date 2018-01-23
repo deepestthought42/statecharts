@@ -45,8 +45,9 @@
 
 
 
-(let ((key (make-key '("H" "G" ("Y" "A")) (root test-1))))
-  (remove-if-not #'(lambda (s) (key-describes-state s key)) (states test-1)))
+(let ((name (make-state-name '("H" "G" ("Z" "B") ("X" "A")) (root test-1))))
+  (remove-if-not #'(lambda (s) (state-described-by-name s name)) (states test-1)))
+
 
 
 

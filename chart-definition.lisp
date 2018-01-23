@@ -4,19 +4,19 @@
 
 
 
-(defun %t (initial-key event final-key if)
-  (labels ((format-key (key)
+(defun %t (initial-name event final-name if)
+  (labels ((format-name (name)
 	     (cond
-	       ((stringp key) key)
-	       ((listp key) (format nil "~{~a~^::~}" key))
+	       ((stringp name) name)
+	       ((listp name) (format nil "~{~a~^::~}" name))
 	       (t (error "This should happen.")))))
     (make-instance 'transition
 		   :name (format nil "~a -> ~a"
-				 (format-key initial-key)
-				 (format-key final-key))
+				 (format-name initial-name)
+				 (format-name final-name))
 		   :event event
-		   :initial-state initial-key
-		   :final-state final-key
+		   :initial-state initial-name
+		   :final-state final-name
 		   :guard (if if if (constantly t)))))
 
 

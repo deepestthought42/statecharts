@@ -2,10 +2,10 @@
 
 
 (define-condition state-exists (error)
-  ((key :accessor key :initarg :key :initform "unspecified key")))
+  ((name :accessor name :initarg :name :initform "unspecified")))
 
 (define-condition transition-exists (error)
-  ((key :accessor key :initarg :key :initform "unspecified transition")))
+  ((name :accessor name :initarg :name :initform "unspecified")))
 
 (define-condition invalid-state-descriptor (error)
   ((descriptor :accessor descriptor :initarg :descriptor
@@ -30,12 +30,13 @@
   (:documentation "doc"))
 
 (define-condition invalid-transition (program-error)
-  ((initial-key :accessor initial-key :initarg :initial-key :initform "")
-   (event-key :accessor event-key :initarg :event-key :initform ""))
+  ((initial-state-name :accessor initial-state-name
+		       :initarg :initial-state-name :initform "")
+   (event-name :accessor event-name :initarg :event-name :initform ""))
   (:report (lambda (c stream)
 	     (format stream "Couldn't compute transition for state: ~a with event: ~a"
-		     (initial-key c)
-		     (transition-key c))))         	                    
+		     (initial-state-name c)
+		     (event-name c))))         	                    
   (:documentation "doc"))
 
 
