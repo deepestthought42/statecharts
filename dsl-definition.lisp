@@ -1,7 +1,6 @@
 (in-package #:statecharts)
 
-;;; 
-
+;;; macros and their helper that make up the statecharts DSL
 
 
 (defun %t (initial-name event final-name if)

@@ -2,8 +2,7 @@
 
 (in-package #:statecharts)
 
-;;; "statecharts" goes here. Hacks and glory await!
-
+;;; objects the statechart DSL evaluates into
 
 
 (defclass statechart-element ()
@@ -21,10 +20,6 @@
   ((registered-transitions :accessor registered-transitions :initarg :registered-transitions
 			   :initform '())))
 
-(defparameter *no-event* nil)
-(defparameter *unknown* nil)
-
-(defparameter *default-hash-table-size* 1000)
 
 
 (defclass statechart (statechart-element)
@@ -49,7 +44,6 @@
 (defclass action ()
   ((fun :accessor fun :initarg :fun :initform (constantly t))))
 
-(defparameter *nothing* (make-instance 'action))
 
 (defclass state (statechart-element)
   ((on-entry :initarg :on-entry

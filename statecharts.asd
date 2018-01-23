@@ -12,8 +12,9 @@
   :serial t
   :components ((:file "package")
 	       (:file "api")
-	       (:file "statecharts")
-	       (:file "compose")
-	       (:file "key")
-	       (:file "chart-definition")))
+	       (:file "dsl-objects")
+	       (:file "state-name")
+	       (:file "fsm-objects")
+	       (:file "fsm-compute")
+	       (:file "dsl-definition")))
 
