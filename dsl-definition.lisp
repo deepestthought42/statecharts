@@ -120,8 +120,9 @@ with the ENVIRONMENT as their parameter.
 							      :description ,description)))
      (setf (root statechart) (progn ,@definitions)
 	   (states statechart) (compute-substates (root statechart))
-	   ;;(transitions statechart) (compute-transitions (root statechart) '())
-	   )
+	   (transitions statechart)
+	   (compute-transitions (root statechart) '()
+				(root statechart)))
      (defparameter ,name statechart)
      statechart))
 

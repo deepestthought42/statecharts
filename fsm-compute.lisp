@@ -54,9 +54,9 @@
 
 ;;; transitions
 
-(defmethod compute-transitions ((s t) super-state) '())
+(defmethod compute-transitions ((s t) super-state chart-element) '())
 
-(defun %make-transitions (elements super-state)
+(defun %make-transitions (elements super-state chart-element)
   (iter
     (for el in elements)
     (when (typep el 'transition)
@@ -65,22 +65,30 @@
 			 :event-name (event el)
 			 :guard (guard el)
 			 :initial-state-name
-			 (%dereference-key super-state
-					   (initial-state el))
+			 (make-state-name (initial-state el) chart-element super-state)
 			 :final-state-name
-			 (%dereference-key super-state
-					   (final-state el)))))))
+			 (make-state-name (final-state el) chart-element super-state))))))
 
 
-(defmethod compute-transitions ((s cluster) super-state)
+(defmethod compute-transitions ((s cluster) super-state chart-element)
   (let+ (((&slots name elements) s)
 	 (super-state (append super-state (list name)))
 	 (transitions-for-sub-states
 	  (iter
 	    (for el in elements)
-	    (appending (compute-transitions el super-state)))))
+	    (appending (compute-transitions el super-state chart-element)))))
     (append transitions-for-sub-states
-	    (%make-transitions elements super-state))))
+	    (%make-transitions elements super-state chart-element))))
+
+(defmethod compute-transitions ((s orhtogonal) super-state chart-element)
+  (let+ (((&slots name elements) s)
+	 (super-state (append super-state (list name)))
+	 (transitions-for-sub-states
+	  (iter
+	    (for el in elements)
+	    (appending (compute-transitions el super-state chart-element)))))
+    (append transitions-for-sub-states
+	    (%make-transitions elements super-state chart-element))))
 
 
 ;;; graph of states

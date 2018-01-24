@@ -28,8 +28,7 @@
 	    (s "A")
 	    (s "B")
 	    (-> "alpha" "B" "A")
-	    (-> "beta" "A" "B")
-	    )
+	    (-> "beta" "A" "B"))
 	  (c "Z" (d "B")
 	    (s "A")
 	    (s "B")
@@ -37,10 +36,13 @@
 	    (-> "alpha" "A" "B")
 	    (-> "beta" "B" "C")
 	    (-> "gamma" "C" "A")
-	    (-> "epsilon" "C" '(/ "H" ("G" ("X" "A"))))))
-	(-> "alpha" "Z" '("G" (:and
-			       ("Y" "A")
-			       ("X" "B")))))))))
+	    (-> "epsilon" "C"
+		'(:/ "H" "G" "X" "A"))))
+	(-> "alpha"
+	    '("G" "Z")
+	    '("G" 
+	      ("Y" "A")
+	      ("X" "B"))))))))
 
 
 (parachute:define-test make-state-name
@@ -51,7 +53,7 @@
 
   (parachute:fail (make-state-name '("H" "G") (root test-chart-1)))
   (parachute:finish (make-state-name '("H" "G") (root test-chart-2)))
-  (parachute:finish (make-state-name '("H" "G" ("X" "A")) (root test-chart-2)))
+  (parachute:finish (make-state-name '("H" "G" "X" "A") (root test-chart-2)))
   (parachute:fail (make-state-name '("H" "G" ("X" "A") ("X" "B")) (root test-chart-2))))
 
 

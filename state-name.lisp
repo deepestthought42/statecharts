@@ -29,9 +29,7 @@
 
 
 
-
-
-(defun make-state-name (state-description chart-element)
+(defun make-state-name (state-description chart-element &optional super-state)
   (labels ((throw-invalid (reason &rest args)
 	     (error 'invalid-state-descriptor :descriptor state-description
 					      :chart-element chart-element
@@ -42,16 +40,24 @@
 					     :test #'string=))
 	       sub-s (throw-invalid "Could not find state with name: ~a" state-name)))
 	   (make-and (state-name %element states-description)
-	     (let+ ((sub-states (iter
-				 (for sub-state in states-description)
-				 (if (not (listp sub-state))
-				     (throw-invalid "Incorrect syntax for substate: ~a" sub-state))
-				 (for state-name = (first sub-state))
-				 (if (not (stringp state-name))
-				     (throw-invalid "State name not a string: ~a" state-name))
-				 (collect (%make-state-name sub-state
-						     (find-element state-name (elements %element))))))
-		   (no-duplicates (remove-duplicates sub-states :test #'string= :key #'name)))
+	     (let+ ((sub-states (cond
+				  ;; multiple sub-states
+				  ((listp (first states-description))
+				   (iter
+				     (for sub-state in states-description)
+				     (for s-name = (first sub-state))
+				     (cond
+				       ((not (stringp s-name))
+					(throw-invalid "State name not a string: ~a" s-name))
+				       (t (collect (%make-state-name
+						    sub-state (find-element s-name (elements %element))))))))
+				  ;; direct sub-state
+				  ((stringp (first states-description))
+				   (list (%make-state-name
+					  states-description
+					  (find-element (first states-description)
+							(elements %element)))))))
+		    (no-duplicates (remove-duplicates sub-states :test #'string= :key #'name)))
 	       (if (not (= (length sub-states)
 			   (length no-duplicates)))
 		   (throw-invalid "Found duplicate substate definitions for: ~a"
@@ -71,20 +77,29 @@
 		 ((and (typep %element 'cluster)
 		       (not (typep %element 'orthogonal)))
 		  (make-instance 'or-state-name :name state-name
-					 :sub-state
-					 (cond
-					   ((not (first rest)) nil)
-					   ((stringp (first rest))
-					    (make-state-name rest (find-element (first rest)
-									 (elements %element))))
-					   (t (throw-invalid "Invalid state syntax: ~a" (first rest)))))) 
+						:sub-state
+						(cond
+						  ((not (first rest)) nil)
+						  ((stringp (first rest))
+						   (%make-state-name rest (find-element (first rest)
+											(elements %element))))
+						  (t (throw-invalid "Invalid state syntax: ~a" (first rest)))))) 
 		 ;; leaf state
 		 ((and (typep %element 'state)
 		       (not (typep %element 'cluster)))
 		  (make-instance 'state-name :name state-name))
 		 ;; 
 		 (t (throw-invalid "Couldn't parse key: ~a" %state-description))))))
-    (%make-state-name state-description chart-element)))
+    (cond
+      ((and (listp state-description)
+	    (equal (first state-description) :/))
+       (%make-state-name (rest state-description) chart-element))
+      ((and super-state (listp state-description))
+       (%make-state-name (append super-state state-description) chart-element))
+      ((listp state-description)
+       (%make-state-name (append super-state state-description) chart-element))
+      (t
+       (%make-state-name (append super-state (list state-description)) chart-element)))))
 
 
 
