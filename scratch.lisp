@@ -47,42 +47,24 @@
 
 
 
-(let ((name (make-state-name '("H" "G" ("Z" "B") ("X" "A")) (root test-1))))
-  (remove-if-not #'(lambda (s) (state-described-by-name s name)) (states test-1)))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 (find-final-states-for-transitions (states test-1)
 				   (transitions test-1))
 
-(remove-if-not #'is-default-state
-	       (remove-if-not #'(lambda (s) (key-describes-state s ))
-			      (remove-if-not #'(lambda (s) (key-describes-state s ))
-					     (states test-1))))
+(let ((name (make-state-name '("H" "G" ("Z" "C")) (root test-1))))
+  (remove-if-not #'is-default-state
+		 (remove-if-not #'(lambda (s) (state-described-by-name s name))
+				(remove-if-not #'(lambda (s) (state-described-by-name s name))
+					       (states test-1)))))
 
 
-(root test-1)
+(let ((name (make-state-name '("H" "G" ("Z" "A") ("X" "B")) (root test-1))))
+  (get-partial-default-state (states test-1) name))
+
+
+
 
 (described-by-final-keys? (states test-1) '(("H" ("G" ("Y" "B"))) ("H" ("G" ("Z" "C")))))
-
-
-
 
 
 (remove-if-not #'is-default-state (states test-1))

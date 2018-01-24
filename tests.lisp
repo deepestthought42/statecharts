@@ -57,4 +57,42 @@
   (parachute:fail (make-state-name '("H" "G" ("X" "A") ("X" "B")) (root test-chart-2))))
 
 
-(parachute:test 'make-state-name)
+
+
+(labels ((%described-by-name (chart description)
+	   (let ((name (make-state-name description (root chart))))
+	     (remove-if-not #'(lambda (s)
+				(state-described-by-name s name))
+			    (states chart)))))
+  (parachute:define-test state-described-by-name
+    :depends-on (make-state-name)
+    (parachute:is = 1 (length
+		       (%described-by-name test-chart-2 '("H"
+							  "G"
+							  ("X" "A")
+							  ("Y" "A")
+							  ("Z" "A")))))
+    (parachute:is = 3 (length
+		       (%described-by-name test-chart-2 '("H"
+							  "G"
+							  ("X" "A")
+							  ("Y" "A")))))
+    (parachute:is = 12 (length
+			(%described-by-name test-chart-2 '("H" "G"))))))
+
+(labels ((%partial (chart description)
+	   (get-partial-default-state
+	    (states chart) (make-state-name description (root chart)))))
+  (parachute:define-test partial-default-state
+    :depends-on (state-described-by-name)
+    (parachute:true (%partial test-chart-2 '("H" "G"
+					     ("X" "A")
+					     ("Y" "A")
+					     ("Z" "A"))))
+    (parachute:true (%partial test-chart-2 '("H" "G")))
+    (parachute:true (%partial test-chart-2 '("H" "G" "X" "B")))))
+
+
+
+
+(parachute:test 'partial-default-state)

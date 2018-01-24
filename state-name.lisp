@@ -28,7 +28,6 @@
 ;;   active, just the name of the substate (e.g. "A") is nonsensical
 
 
-
 (defun make-state-name (state-description chart-element &optional super-state)
   (labels ((throw-invalid (reason &rest args)
 	     (error 'invalid-state-descriptor :descriptor state-description
@@ -76,14 +75,15 @@
 		 ;; cluster state
 		 ((and (typep %element 'cluster)
 		       (not (typep %element 'orthogonal)))
-		  (make-instance 'or-state-name :name state-name
-						:sub-state
-						(cond
-						  ((not (first rest)) nil)
-						  ((stringp (first rest))
-						   (%make-state-name rest (find-element (first rest)
-											(elements %element))))
-						  (t (throw-invalid "Invalid state syntax: ~a" (first rest)))))) 
+		  (make-instance 'or-state-name
+				 :name state-name
+				 :sub-state
+				 (cond
+				   ((not (first rest)) nil)
+				   ((stringp (first rest))
+				    (%make-state-name rest (find-element (first rest)
+									 (elements %element))))
+				   (t (throw-invalid "Invalid state syntax: ~a" (first rest)))))) 
 		 ;; leaf state
 		 ((and (typep %element 'state)
 		       (not (typep %element 'cluster)))
@@ -100,9 +100,4 @@
        (%make-state-name (append super-state state-description) chart-element))
       (t
        (%make-state-name (append super-state (list state-description)) chart-element)))))
-
-
-
-
-
 

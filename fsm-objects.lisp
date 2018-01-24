@@ -77,19 +77,42 @@
 
 ;;; state to name comparison
 
+;;; 
+
+(defgeneric state=state-name (state state-name))
+
+(defmethod  state=state-name ((state t)
+			      (state-name t))
+  nil)
+
+(defmethod  state=state-name ((state s)
+			      (state-name state-name))
+  (string= (name state-name)
+	   (name state)))
+
+(defmethod  state=state-name ((state s-xor)
+			      (state-name or-state-name))
+  (string= (name state-name)
+	   (name state)))
+
+(defmethod  state=state-name ((state s-and)
+			      (state-name and-state-name))
+  (string= (name state-name)
+	   (name state)))
+
+
+
 (defgeneric state-described-by-name (s state-name))
 
 (defmethod state-described-by-name ((s t) state-name) nil)
 
 (defmethod state-described-by-name ((s s) state-name)
-  (string= (name s) (name state-name)))
+  (state=state-name s state-name))
 
 (defmethod state-described-by-name ((s s-xor) state-name)
   (cond
     ;; name and state-name have to match as well as the type of name
-    ((not (and (string= (name s) (name state-name))
-	       (typep state-name 'or-state-name)))
-     nil)
+    ((not (state=state-name s state-name)) nil)
     ;; the name matches but doesn't specify any sub-states -> match
     ((not (sub-state state-name)) t)
     ;; the name still matches and specifies sub-states -> test substate
@@ -103,9 +126,7 @@
 		   (return t)))))
     (cond
       ;; name and state-name have to match as well as the type of state-name
-      ((not (and (string= (name s) (name state-name))
-		 (typep state-name 'and-state-name)))
-       nil)
+      ((not (state=state-name s state-name)) nil)
       ;; the state-name doesn't specify any substates, so all good
       ((not (sub-states state-name)) t)
       ;; name matches and we have substates, so compare them one be one
@@ -142,48 +163,34 @@
 
 ;;; these methods assume states S that correspond to the name given
 
-(defgeneric %walk-state (s name)
-  (:method ((s t) name) nil))
+(defgeneric %is-partial-default-state (s state-name))
 
-(defmethod %walk-state ((s s) name) t)
+(defmethod %is-partial-default-state ((s s) (state-name state-name)) t)
 
-(defmethod %walk-state ((s s-xor) name)
-  (if (cdr name)
-      (%walk-state (sub-state s) (cadr name))
+(defmethod %is-partial-default-state ((s s-xor) (state-name or-state-name))
+  (if (sub-state state-name)
+      (%is-partial-default-state (sub-state s) (sub-state state-name))
       (is-default-state s)))
 
 
-(defmethod %walk-state ((s s-and) name)
-  (labels ((find-key (sub-s key-list)
+(defmethod %is-partial-default-state ((s s-and) (state-name and-state-name))
+  (labels ((find-state-name (sub-s state-names)
 	     (iter
-	       (for k in key-list)
-	       (if (state-described-by-name sub-s k)
-		   (return k)))))
-    (let+ (((&slots sub-states) s)
-	   (keys (cond
-		   ((and (listp (cadr name))
-			 (equal :and (caadr name)))
-		    (cdadr name))
-		   ((and (listp (cadr name))
-			 (stringp (caadr name)))
-		    (cdr name))
-		   (t (error 'invalid-state-descriptor :name name)))))
-      ;; given the name definition it can be of one of the following
-      ;; forms:
-      ;; ("X" (:and ("Z" ..) ..))
-      ;; ("X" ("Z" ..))
-      (iter
-	(for sub-s in sub-states)
-	(for k = (find-key sub-s keys))
-	(cond
-	  ((and k (not (%walk-state sub-s k))) (return nil))
-	  ((and (not k) (not (is-default-state sub-s))) (return nil)))
-	(finally (return t))))))
+	       (for state-name in state-names)
+	       (if (state-described-by-name sub-s state-name)
+		   (return state-name)))))
+    (iter
+      (for sub-s in (sub-states s))
+      (for s-name = (find-state-name sub-s (sub-states state-name)))
+      (cond
+	((and s-name (not (%is-partial-default-state sub-s s-name))) (return nil))
+	((and (not s-name) (not (is-default-state sub-s))) (return nil)))
+      (finally (return t)))))
 
-(defun get-partial-default-state (lst-of-states state-key)
+(defun get-partial-default-state (lst-of-states state-name)
   (let+ ((described-states
 	  (remove-if-not #'(lambda (s)
-			     (state-described-by-name s state-key))
+			     (state-described-by-name s state-name))
 			 lst-of-states)))
-    (remove-if-not #'(lambda (s) (%walk-state s state-key)) described-states)))
+    (remove-if-not #'(lambda (s) (%is-partial-default-state s state-name)) described-states)))
 
