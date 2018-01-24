@@ -101,3 +101,31 @@
       (t
        (%make-state-name (append super-state (list state-description)) chart-element)))))
 
+
+
+(defmethod print-object ((obj state-name) stream)
+  (print-unreadable-object (obj stream)
+    (print-state-name obj stream)))
+
+(defmethod print-state-name ((obj state-name) stream)
+  (format stream "~a" (name obj)))
+
+(defmethod print-state-name ((obj or-state-name) stream)
+  (format stream "(~a" (name obj))
+  (when (sub-state obj)
+    (format stream " ")
+    (print-state-name (sub-state obj) stream))
+  (format stream ")"))
+
+
+(defmethod print-state-name ((obj and-state-name) stream)
+  (format stream "(~a" (name obj))
+  (let ((sub-states (sub-states obj)))
+    (when sub-states
+      (format stream " ")
+      (print-state-name (car sub-states) stream)
+      (map nil #'(lambda (s)
+		   (format stream "∧")
+		   (print-state-name s stream))
+	   (cdr sub-states))))
+  (format stream ")"))

@@ -58,8 +58,10 @@
 					       (states test-1)))))
 
 
-(let ((name (make-state-name '("H" "G" ("Z" "A") ("X" "B")) (root test-1))))
+(let ((name ))
   (get-partial-default-state (states test-1) name))
+
+(print-state-name (make-state-name '("H" "G" ("X" "A") ("Y" "B")) (root test-1)) t)
 
 
 
