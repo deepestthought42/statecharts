@@ -116,7 +116,10 @@
     table))
 
 
-(defun set-transition (initial-state event-name final-state))
+(defun set-transition (initial-state event-name final-state)
+  (pushnew (cons event-name final-state)
+	   (ev->state initial-state)
+	   :test #'equal))
 
 
 
@@ -134,19 +137,16 @@
 
 
 
-(defun join-transitions (states transitions))
-
-
 (defun get-final-state (states transitions)
   (let+ ((len (length transitions))
 	 ((&values name final-state)
 	  (case len
 	    (0 (error "This shouldn't happen."))
-	    (1 (let ((name (final-state-name (car transitions))))
+	    (1 (let ((name (final-state-name (first transitions))))
 		 (values name (get-partial-default-state states name))))
-	    (t (progn
-		 (break)
-		 (error "not implemented."))))))
+	    (t (let ((name (reduce #'join-state-names
+				   (mapcar #'final-state-name transitions))))
+		 (values name (get-partial-default-state states name)))))))
     (if final-state
 	final-state
 	(error 'invalid-state-descriptor :descriptor name))))
@@ -170,8 +170,14 @@
 	(for ev = (car ev.transitions))
 	(for trans = (cdr ev.transitions))
 	(when trans
-	  (in outer
-	      (set-transition s ev (get-final-state states trans))))))))
+	  (handler-case
+	      (in outer
+		  (set-transition s ev (get-final-state states trans)))
+	    (t (c)
+	      (error 'couldnt-determine-final-state
+		     :initial-state s
+		     :event ev
+		     :given-condition c))))))))
 
 
 

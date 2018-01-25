@@ -50,6 +50,12 @@
 		  (make-state-name '("H" "G" ("Z" "A")) (root test-1)))
 
 
+
+(state-name= (make-state-name '("H" "G" ("Z" "C")) (root test-1))
+	     (make-state-name '("H" "G" ("Z" "C")) (root test-1)))
+
+
+
 (find-final-states-for-transitions (states test-1)
 				   (transitions test-1))
 
@@ -75,4 +81,13 @@
 
 
 (find-final-states-for-transitions (states test-states) (transitions test-states))
+
+
+
+(let* ((cl-dot:*dot-path* "/usr/bin/dot")
+       (data '(a b c #1=(b z) c d #1#))
+       (dgraph (cl-dot:generate-graph-from-roots test-states (states test-states)
+						 '(:rankdir "LR"))))
+  (cl-dot:dot-graph dgraph "/home/renee/tmp/test-lr.png" :format :png))
+
 

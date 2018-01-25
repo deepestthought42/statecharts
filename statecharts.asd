@@ -8,7 +8,8 @@
 		#:alexandria
 		#:let-plus
 		#:group-by
-		#:parachute)
+		#:parachute
+		#:cl-dot)
   :serial t
   :components ((:file "package")
 	       (:file "api")

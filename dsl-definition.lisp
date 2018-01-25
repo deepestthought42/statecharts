@@ -123,6 +123,8 @@ with the ENVIRONMENT as their parameter.
 	   (transitions statechart)
 	   (compute-transitions (root statechart) '()
 				(root statechart)))
+     (find-final-states-for-transitions (states statechart)
+					(transitions statechart))
      (defparameter ,name statechart)
      statechart))
 

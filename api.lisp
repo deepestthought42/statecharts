@@ -26,6 +26,18 @@
 		     (state-a condition) (state-b condition)
 		     (reason condition)))))
 
+(define-condition couldnt-determine-final-state (error)
+  ((initial-state :accessor initial-state :initarg :initial-state :initform nil)
+   (event :accessor event :initarg :event :initform "not given")
+   (given-condition :accessor given-condition :initarg
+		    :given-condition :initform nil))
+  (:report (lambda (condition stream)
+	     (format stream "Couldn't determine final state for event: ~a with initial state: ~a ~%~a"
+		     (initial-state condition) (event condition)
+		     (if (given-condition condition)
+			 (given-condition condition)
+			 "Unknown reason")))))
+
 
 (define-condition invalid-chart-syntax (program-error)
   ((message :accessor message :initarg :message :initform nil)

@@ -161,11 +161,9 @@
 
 (defmethod join-state-names ((a and-state-name) (b and-state-name))
   (labels ((app-sns ()
-	     (let+ ((appended (append (sub-states a) (sub-states b)))
-		    (no-duplicates (remove-duplicates appended
-						      :test #'string=
-						      :key #'name)))
-	       (if (not (= (length appended)
+	     (let+ ((unionized (union (sub-states a) (sub-states b) :test #'state-name=))
+		    (no-duplicates (remove-duplicates unionized :key #'name :test #'string=)))
+	       (if (not (= (length unionized)
 			   (length no-duplicates)))
 		   (throw-couldnt-join-state-names a b "Duplicate sub states")
 		   (mapcar #'copy-state-name no-duplicates)))))
@@ -177,6 +175,31 @@
 		      (app-sns)))
       (t (throw-couldnt-join-state-names a b "States do no not match.")))))
 
+
+;;; compare state names
+
+(defgeneric state-name= (a b))
+
+(defmethod state-name= ((a state-name) (b t)) nil)
+(defmethod state-name= ((a t) (b state-name)) nil)
+
+(defmethod state-name= ((a state-name) (b state-name))
+  (string= (name a) (name b)))
+
+(defmethod state-name= ((a or-state-name) (b or-state-name))
+  (and (string= (name a) (name b))
+       (state-name= (sub-state a) (sub-state b))))
+
+(defmethod state-name= ((a and-state-name) (b and-state-name))
+  (and (string= (name a) (name b))
+       (= (length (sub-states a))
+	  (length (sub-states b)))
+       (iter
+	 (for sa in (sort (sub-states a) #'string< :key #'name))
+	 (for sb in (sort (sub-states b) #'string< :key #'name))
+	 (if (not (state-name= sa sb))
+	     (return nil))
+	 (finally (return t)))))
 
 ;;; printing state-name
 

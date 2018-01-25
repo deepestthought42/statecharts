@@ -14,6 +14,7 @@
   ((name :initarg :name :accessor name :initform (error "Must initialize name."))
    (defining-state :initarg :defining-state :accessor defining-state 
 		   :initform (error "Must initialize defining-state."))
+   (ev->state :accessor ev->state :initarg :ev->state :initform '())
    (on-entry :accessor on-entry :initarg :on-entry :initform '())
    (on-exit :accessor on-exit :initarg :on-exit :initform '())))
 
@@ -192,5 +193,5 @@
 	  (remove-if-not #'(lambda (s)
 			     (state-described-by-name s state-name))
 			 lst-of-states)))
-    (remove-if-not #'(lambda (s) (%is-partial-default-state s state-name)) described-states)))
+    (first (remove-if-not #'(lambda (s) (%is-partial-default-state s state-name)) described-states))))
 
