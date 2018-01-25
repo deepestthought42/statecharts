@@ -26,5 +26,9 @@
    #:o
    #:defstatechart
    #:s
-   #:invalid-transition))
+   #:invalid-transition
+   #:state-a
+   #:state-b
+   #:reason
+   #:couldnt-join-state-names))
 

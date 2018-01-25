@@ -80,7 +80,7 @@
     (append transitions-for-sub-states
 	    (%make-transitions elements super-state chart-element))))
 
-(defmethod compute-transitions ((s orhtogonal) super-state chart-element)
+(defmethod compute-transitions ((s orthogonal) super-state chart-element)
   (let+ (((&slots name elements) s)
 	 (super-state (append super-state (list name)))
 	 (transitions-for-sub-states
@@ -120,16 +120,21 @@
 
 
 
-(defun described-by-final-keys? (states keys)
+(defun described-by-final-keys? (states state-names)
   (iter
-    (for k in keys)
+    (for sn in state-names)
     (for ss initially states
 	 then (remove-if-not #'(lambda (s)
-				 (state-described-by-name s k))
+				 (state-described-by-name s sn))
 			     ss))
     (until (not ss))
     (finally (return ss))))
 
+
+
+
+
+(defun join-transitions (states transitions))
 
 
 (defun get-final-state (states transitions)

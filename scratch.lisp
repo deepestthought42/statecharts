@@ -46,22 +46,23 @@
 	      ("X" "B")))))
 
 
+(join-state-names (make-state-name '("H" "G" ("Z" "C")) (root test-1))
+		  (make-state-name '("H" "G" ("Z" "A")) (root test-1)))
 
 
 (find-final-states-for-transitions (states test-1)
 				   (transitions test-1))
 
-(let ((name (make-state-name '("H" "G" ("Z" "C")) (root test-1))))
+(let ((name ))
   (remove-if-not #'is-default-state
 		 (remove-if-not #'(lambda (s) (state-described-by-name s name))
 				(remove-if-not #'(lambda (s) (state-described-by-name s name))
 					       (states test-1)))))
 
 
-(let ((name ))
+(let ((name (make-state-name '("H" "G" ("X" "A") ("Y" "B")) (root test-1))))
   (get-partial-default-state (states test-1) name))
 
-(print-state-name (make-state-name '("H" "G" ("X" "A") ("Y" "B")) (root test-1)) t)
 
 
 
@@ -73,4 +74,5 @@
 
 
 
+(find-final-states-for-transitions (states test-states) (transitions test-states))
 

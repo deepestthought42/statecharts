@@ -17,6 +17,15 @@
 	     (format stream "Invalid state descriptor or unknown state: ~a~%~a"
 		     (descriptor condition) (reason condition)))))
 
+(define-condition couldnt-join-state-names (error)
+  ((state-a :accessor state-a :initarg :state-a :initform nil)
+   (state-b :accessor state-b :initarg :state-b :initform nil)
+   (reason :accessor reason :initarg :reason :initform "not given"))
+  (:report (lambda (condition stream)
+	     (format stream "Couldn't join states: ~a and ~a ~%~a"
+		     (state-a condition) (state-b condition)
+		     (reason condition)))))
+
 
 (define-condition invalid-chart-syntax (program-error)
   ((message :accessor message :initarg :message :initform nil)

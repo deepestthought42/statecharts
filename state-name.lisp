@@ -102,6 +102,83 @@
        (%make-state-name (append super-state (list state-description)) chart-element)))))
 
 
+;;; copy state-names
+(defgeneric copy-state-name (state-name))
+
+(defmethod copy-state-name ((sn state-name))
+  (make-instance 'state-name :name (name sn)))
+
+(defmethod copy-state-name ((sn or-state-name))
+  (make-instance 'or-state-name
+		 :name (name sn)
+		 :sub-state
+		 (copy-state-name (sub-state sn))))
+
+(defmethod copy-state-name ((sn and-state-name))
+  (make-instance 'and-state-name
+		 :name (name sn)
+		 :sub-states
+		 (mapcar #'copy-state-name (sub-states sn))))
+
+;;; joining ops
+
+(defun throw-couldnt-join-state-names (a b reason &rest args)
+  (error 'couldnt-join-state-names
+	 :state-a a
+	 :state-b b
+	 :reason (format nil reason args)))
+
+(labels ((throw-couldnt-diff (a b)
+	   (throw-couldnt-join-state-names a b "States are of different type.")))
+  (defgeneric join-state-names (a b)
+    (:method ((a state-name) (b t))
+      (throw-couldnt-diff a b))
+    (:method ((a t) (b state-name))
+      (throw-couldnt-diff a b))
+    (:method ((a or-state-name) (b t))
+      (throw-couldnt-diff a b))
+    (:method ((a t) (b or-state-name))
+      (throw-couldnt-diff a b))
+    (:method ((a and-state-name) (b t))
+      (throw-couldnt-diff a b))
+    (:method ((a t) (b and-state-name))
+      (throw-couldnt-diff a b))))
+
+
+(defmethod join-state-names ((a state-name) (b state-name))
+  (cond
+    ((string= (name a) (name b))
+     (make-instance 'state-name :name (name a)))
+    (t (throw-couldnt-join-state-names a b "States do no not match."))))
+
+(defmethod join-state-names ((a or-state-name) (b or-state-name))
+  (cond
+    ((string= (name a) (name b))
+     (make-instance 'or-state-name
+		    :name (name a)
+		    :sub-state (join-state-names (sub-state a) (sub-state b))))
+    (t (throw-couldnt-join-state-names a b "States do no not match."))))
+
+(defmethod join-state-names ((a and-state-name) (b and-state-name))
+  (labels ((app-sns ()
+	     (let+ ((appended (append (sub-states a) (sub-states b)))
+		    (no-duplicates (remove-duplicates appended
+						      :test #'string=
+						      :key #'name)))
+	       (if (not (= (length appended)
+			   (length no-duplicates)))
+		   (throw-couldnt-join-state-names a b "Duplicate sub states")
+		   (mapcar #'copy-state-name no-duplicates)))))
+    (cond
+      ((string= (name a) (name b))
+       (make-instance 'and-state-name
+		      :name (name a)
+		      :sub-states
+		      (app-sns)))
+      (t (throw-couldnt-join-state-names a b "States do no not match.")))))
+
+
+;;; printing state-name
 
 (defmethod print-object ((obj state-name) stream)
   (print-unreadable-object (obj stream)
