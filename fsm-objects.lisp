@@ -13,7 +13,7 @@
 (defclass s ()
   ((name :initarg :name :accessor name :initform (error "Must initialize name."))
    (defining-state :initarg :defining-state :accessor defining-state 
-		   :initform (error "Must initialize defining-state."))
+		   :initform nil)
    (ev->state :accessor ev->state :initarg :ev->state :initform '())
    (on-entry :accessor on-entry :initarg :on-entry :initform '())
    (on-exit :accessor on-exit :initarg :on-exit :initform '())))

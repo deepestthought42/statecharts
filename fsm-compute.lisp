@@ -8,7 +8,10 @@
 (defmethod compute-substates ((s t)) '())
 
 (defmethod compute-substates ((s state))
-  (list (make-instance 's :name (name s) :defining-state s)))
+  (list (make-instance 's :name (name s)
+			  :defining-state s
+			  :on-entry (on-entry s)
+			  :on-exit (on-exit s))))
 
 (defmethod compute-substates ((cluster cluster))
   (let+ (((&slots name elements transitions default-state) cluster))
@@ -19,8 +22,10 @@
 	(for s in sub-states)
 	(in outer
 	    (collect (make-instance 's-xor :name name :sub-state s
-				    :defining-state cluster
-				    :default-state default-state)))))))
+					   :defining-state cluster
+					   :on-entry (on-entry cluster)
+					   :on-exit (on-exit cluster)
+					   :default-state default-state)))))))
 
 (defmethod compute-substates ((ortho orthogonal))
   (let+ (((&slots name elements) ortho)
@@ -34,6 +39,8 @@
 		  (mapcar #'(lambda (s)
 			      (make-instance 's-and :sub-states (list s)
 						    :defining-state ortho
+						    :on-entry (on-entry ortho)
+						    :on-exit (on-exit ortho)
 						    :name name))
 			  (car super-lst)))
 		 (t
@@ -45,6 +52,8 @@
 		       (mapcar #'(lambda (s-n)
 				   (make-instance 's-and :name name
 							 :defining-state ortho
+							 :on-entry (on-entry ortho)
+							 :on-exit (on-exit ortho)
 							 :sub-states
 							 (append (list s-1)
 								 (sub-states s-n))))
@@ -62,8 +71,8 @@
     (when (typep el 'transition)
       (collect
 	  (make-instance 'tr
-			 :event-name (event el)
-			 :guard (guard el)
+			 :event-name (event-symbol el)
+			 :guard (guards el)
 			 :initial-state-name
 			 (make-state-name (initial-state el) chart-element super-state)
 			 :final-state-name
@@ -178,6 +187,78 @@
 		     :initial-state s
 		     :event ev
 		     :given-condition c))))))))
+
+
+
+
+(defgeneric flatten-state (s new-state))
+
+(defun %flatten-state (s new-state)
+  (setf (on-entry new-state)
+	(append (on-entry new-state)
+		(on-entry s))
+	(on-exit new-state)
+	(append (on-exit new-state)
+		(on-exit s))
+	(defining-state new-state)
+	(append (defining-state new-state)
+		(list (defining-state s)))))
+
+(defmethod flatten-state ((s s) (new-state s))
+  (%flatten-state s new-state)
+  new-state)
+
+(defmethod flatten-state ((s s-and) (new-state s))
+  (%flatten-state s new-state)
+  (iter
+    (for sub-s in (sub-states s))
+    (flatten-state sub-s new-state))
+  new-state)
+
+(defmethod flatten-state ((s s-xor) (new-state s))
+  (%flatten-state s new-state)
+  (if (sub-state s)
+      (flatten-state (sub-state s) new-state))
+  new-state)
+
+
+(defun flatten-all-states (states)
+  (iter
+    (for s in states)
+    (for new-state =
+	 (make-instance 's :name (with-output-to-string (stream)
+				   (print-s s stream))
+			   :ev->state (copy-seq (ev->state s))))
+    (flatten-state s new-state)
+    (collect (cons s new-state))))
+
+(defun replace-final-states-in-transitions (states.flattened-states)
+  (labels ((flatten-transitions (u)
+	     (setf
+	      (ev->state u)
+	      (iter
+		(for (ev . state) in (ev->state u))
+		(for (state-1 . unchained) = (assoc state states.flattened-states))
+		(if (not unchained)
+		    (error "Couldn't find replacement ? That doesn't make sense."))
+		(collect (cons ev unchained))))
+	     u))
+    (iter
+      (for s.u in states.flattened-states)
+      (for u = (cdr s.u))
+      (collect (flatten-transitions u)))))
+
+
+
+(defun compute-fsm-runtime (statechart)
+  (let+ (((&slots states events transitions environment-type) statechart)
+	 (states.flattened-states (flatten-all-states states))
+	 (unchained-states (replace-final-states-in-transitions states.flattened-states)))
+    ))
+
+
+(replace-final-states-in-transitions
+ (flatten-all-states (states test-1)))
 
 
 

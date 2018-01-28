@@ -16,13 +16,13 @@
 		   :event event
 		   :initial-state initial-name
 		   :final-state final-name
-		   :guard (if if if (constantly t)))))
+		   :guards (if if if (constantly t)))))
 
 
 (defun %s (name description entry exit)
   (make-instance 'state :name name :description description
-			:on-entry (if entry entry (constantly t))
-			:on-exit (if exit exit (constantly t))))
+			:on-entry entry
+			:on-exit exit))
 
 
 
@@ -46,8 +46,8 @@
 
 (defmacro %superstate (type name state-selector default-state description entry exit sub-states)
   `(make-instance ',type :name ,name :description ,description
-			 :on-entry (if ,entry ,entry (constantly t))
-			 :on-exit (if ,exit ,exit (constantly t))
+			 :on-entry ,entry
+			 :on-exit ,exit
 			 :selector-type ',state-selector
 			 :default-state ,default-state
 			 :elements (list ,@sub-states)))
@@ -114,15 +114,24 @@ with the ENVIRONMENT as their parameter.
   `(statecharts::%s ,name ,description ,entry ,exit))
 
 
-(defmacro defstatechart ((name &key (description "")) &body definitions)
+(defmacro act ((env-symbol) &body code)
+  `(make-instance 'sc:action
+		  :fun #'(lambda (,env-symbol) ,@code)))
+
+(defmacro defstatechart ((name &key environment-type
+				    (description ""))
+			 &body definitions)
   (%check-defstatechart-arguments name description definitions)
   `(let* ((statechart (make-instance 'statecharts::statechart :name ,(string name)
-							      :description ,description)))
+							      :description ,description
+							      :environment-type ,environment-type)))
      (setf (root statechart) (progn ,@definitions)
 	   (states statechart) (compute-substates (root statechart))
 	   (transitions statechart)
 	   (compute-transitions (root statechart) '()
-				(root statechart)))
+				(root statechart))
+	   (events statechart) (remove-duplicates
+				(mapcar #'event-name (transitions statechart))))
      (find-final-states-for-transitions (states statechart)
 					(transitions statechart))
      (defparameter ,name statechart)

@@ -31,7 +31,11 @@
 	(-> "alpha" "B" "A")
 	(-> "beta" "A" "B"))
       (c "Z" (d "B")
-	(s "A")
+	(s "A"
+	   :entry
+	   (sc:act (env)
+	     (declare (ignore env))
+	     (format t "Yes!")))
 	(s "B")
 	(s "C")
 ;;	(-> "alpha" "A" "B")
@@ -86,8 +90,9 @@
 
 (let* ((cl-dot:*dot-path* "/usr/bin/dot")
        (data '(a b c #1=(b z) c d #1#))
-       (dgraph (cl-dot:generate-graph-from-roots test-states (states test-states)
+       (dgraph (cl-dot:generate-graph-from-roots test-states (states test-1)
 						 '(:rankdir "LR"))))
   (cl-dot:dot-graph dgraph "/home/renee/tmp/test-lr.png" :format :png))
 
 
+(unchain-all-states (states test-1))

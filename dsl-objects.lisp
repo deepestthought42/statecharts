@@ -26,19 +26,34 @@
   ((root :accessor root :initarg :root :initform nil)
    (states :accessor states :initarg :states :initform '())
    (transitions :accessor transitions :initarg :transitions :initform '())
-   (events :accessor events :initarg :events :initform '())))
-
-(defclass environment () ())
+   (events :accessor events :initarg :events :initform '())
+   (environment-type :accessor environment-type
+		     :initarg :environment-type
+		     :initform nil)))
 
 (defclass transition (statechart-element)
   ((event :initarg :event :accessor event 
 	  :initform (error "Must initialize event."))
-   (guard :initarg :guard :accessor guard 
-	  :initform (constantly t))
+   (guards :accessor guards :initarg :guards :initform '())
    (initial-state :initarg :initial-state :accessor initial-state 
 		  :initform (error "Must initialize initial-state."))
    (final-state :initarg :final-state :accessor final-state 
-		:initform (error "Must initialize final-state."))))
+		:initform (error "Must initialize final-state."))
+   (event-symbol :reader event-symbol)))
+
+(defmethod initialize-instance :after ((obj transition) &key)
+  (setf (slot-value obj 'event-symbol)
+	(alexandria:symbolicate (event obj))))
+
+
+(defclass guard ()
+  ((description :initarg :description :accessor description :initform "")))
+
+(defclass state-guard (guard)
+  ((state-name :initarg :state-name :accessor state-name 
+	       :initform (error "Must initialize state-name."))))
+
+
 
 
 (defclass action ()
@@ -78,5 +93,11 @@
 	     :initform (error "Must initialize elements."))))
 
 (defclass orthogonal (cluster) ())
+
+
+(defclass environment () ())
+
+(defgeneric create-environment (environment))
+
 
 
