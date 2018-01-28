@@ -114,24 +114,27 @@ with the ENVIRONMENT as their parameter.
   `(statecharts::%s ,name ,description ,entry ,exit))
 
 
-(defmacro act ((env-symbol) &body code)
+(defmacro act (name (env-symbol) &body code)
   `(make-instance 'sc:action
-		  :fun #'(lambda (,env-symbol) ,@code)))
+		  :fun #'(lambda (,env-symbol) ,@code)
+		  :name ,name))
 
-(defmacro defstatechart ((name &key environment-type
+(defmacro defstatechart ((name &key (environment-type 'sc:environment)
 				    (description ""))
 			 &body definitions)
   (%check-defstatechart-arguments name description definitions)
-  `(let* ((statechart (make-instance 'statecharts::statechart :name ,(string name)
-							      :description ,description
-							      :environment-type ,environment-type)))
+  `(let* ((statechart (make-instance 'statecharts::statechart
+				     :name ,(string name)
+				     :description ,description
+				     :environment-type ',environment-type)))
      (setf (root statechart) (progn ,@definitions)
 	   (states statechart) (compute-substates (root statechart))
 	   (transitions statechart)
 	   (compute-transitions (root statechart) '()
 				(root statechart))
 	   (events statechart) (remove-duplicates
-				(mapcar #'event-name (transitions statechart))))
+				(mapcar #'event-name (transitions statechart)))
+	   (default-state statechart) (first (remove-if-not #'is-default-state (states statechart))))
      (find-final-states-for-transitions (states statechart)
 					(transitions statechart))
      (defparameter ,name statechart)

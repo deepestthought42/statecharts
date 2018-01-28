@@ -31,5 +31,6 @@
    #:state-b
    #:reason
    #:couldnt-join-state-names
-   #:act))
+   #:act
+   #:signal-event))
 

@@ -248,17 +248,29 @@
       (for u = (cdr s.u))
       (collect (flatten-transitions u)))))
 
+(defun find-flattened-default-state (default-state states.flattened-states)
+  (alexandria:if-let (fds (assoc default-state states.flattened-states))
+    (cdr fds)
+    (error "This shouldn't happen: Couldn't find flattened default state.")))
 
 
-(defun compute-fsm-runtime (statechart)
-  (let+ (((&slots states events transitions environment-type) statechart)
+(defun create-fsm-runtime (statechart &key debug)
+  (let+ (((&slots states events transitions environment-type default-state) statechart)
 	 (states.flattened-states (flatten-all-states states))
-	 (unchained-states (replace-final-states-in-transitions states.flattened-states)))
-    ))
+	 (flattened-states (replace-final-states-in-transitions states.flattened-states))
+	 (flattened-default-state
+	  (find-flattened-default-state default-state states.flattened-states)))
+    (make-instance (if debug
+		       'debug-statecharts-runtime-fsm
+		       'statecharts-runtime-fsm)
+		   :default-state flattened-default-state
+		   :states flattened-states
+		   :current-state flattened-default-state
+		   :events events
+		   :enviroment (make-instance environment-type))))
 
 
-(replace-final-states-in-transitions
- (flatten-all-states (states test-1)))
+
 
 
 

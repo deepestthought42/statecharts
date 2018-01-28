@@ -25,6 +25,7 @@
 (defclass statechart (statechart-element)
   ((root :accessor root :initarg :root :initform nil)
    (states :accessor states :initarg :states :initform '())
+   (default-state :accessor default-state :initarg :default-state :initform nil)
    (transitions :accessor transitions :initarg :transitions :initform '())
    (events :accessor events :initarg :events :initform '())
    (environment-type :accessor environment-type
@@ -56,7 +57,7 @@
 
 
 
-(defclass action ()
+(defclass action (statechart-element)
   ((fun :accessor fun :initarg :fun :initform (constantly t))))
 
 

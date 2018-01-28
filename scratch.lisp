@@ -33,9 +33,9 @@
       (c "Z" (d "B")
 	(s "A"
 	   :entry
-	   (sc:act (env)
+	   (sc:act "test action" (env)
 	     (declare (ignore env))
-	     (format t "Yes!")))
+	     (format t "Action!")))
 	(s "B")
 	(s "C")
 ;;	(-> "alpha" "A" "B")
@@ -96,3 +96,10 @@
 
 
 (unchain-all-states (states test-1))
+
+(defparameter *test-fsm* (create-fsm-runtime test-1 :debug t))
+
+(signal-event *test-fsm* 'sc::|alpha|)
+
+
+
