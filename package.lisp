@@ -32,5 +32,7 @@
    #:reason
    #:couldnt-join-state-names
    #:act
-   #:signal-event))
+   #:signal-event
+   #:couldnt-find-default-state
+   #:default-state))
 

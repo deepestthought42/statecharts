@@ -20,7 +20,7 @@
    (parachute:finish
     (defstatechart (test-chart-2)
       (c "H" (d "G")
-	(o "G" (d "X")
+	(o "G" ()
 	  (c "X" (d "A")
 	    (s "A")
 	    (s "B"))
@@ -42,7 +42,12 @@
 	    '("G" "Z")
 	    '("G" 
 	      ("Y" "A")
-	      ("X" "B"))))))))
+	      ("X" "B"))))))
+   (parachute:fail
+    (defstatechart (test-chart-wrong-default)
+      (c "H" (d "G")
+	(s "A")
+	(s "B"))))))
 
 
 (parachute:define-test make-state-name

@@ -45,12 +45,25 @@
 
 
 (defmacro %superstate (type name state-selector default-state description entry exit sub-states)
-  `(make-instance ',type :name ,name :description ,description
-			 :on-entry ,entry
-			 :on-exit ,exit
-			 :selector-type ',state-selector
-			 :default-state ,default-state
-			 :elements (list ,@sub-states)))
+  (case type
+    (cluster
+     `(let ((sub-states (list ,@sub-states)))
+	(if (not (find ,default-state sub-states :key #'name :test #'string=))
+	    (error 'couldnt-find-default-state
+		   :default-state ,default-state
+		   :cluster ,name))
+	(make-instance 'cluster :name ,name :description ,description
+				:on-entry ,entry
+				:on-exit ,exit
+				:selector-type ',state-selector
+				:default-state ,default-state
+				:elements sub-states)))
+    (orthogonal
+     `(make-instance 'orthogonal :name ,name :description ,description
+				 :on-entry ,entry
+				 :on-exit ,exit
+				 :selector-type ',state-selector
+				 :elements (list ,@sub-states)))))
 
 ;;; statechart definition language
 
@@ -65,7 +78,7 @@ proceed if IF returns true.
   `(statecharts::%t ,initial ,event ,final ,if))
 
 
-(defmacro o (name (state-selector default-state &key (description "") entry exit)
+(defmacro o (name (&key (state-selector 'd) (description "") entry exit)
 	     &body sub-states)
   "Returns an object of type ORTHOGONAL (with its sub-states being
 active at the same time, i.e. a logical conjunction of the sub-states:
@@ -80,13 +93,14 @@ functions of one variable and will be called with the ENVIRONMENT as
 their parameter.
 
 => ORTHOGONAL"
-  `(%superstate orthogonal ,name ,state-selector ,default-state
+  `(%superstate orthogonal ,name ,state-selector nil
      ,description ,entry ,exit ,sub-states))
 
 (defmacro c (name (state-selector default-state &key (description "") entry exit)
 	     &body sub-states)
   "Returns an object of type CLUSTER (with only one sub-state being
 active at all times, i.e. a logical conjunction of the sub-states:
+
 O(A1,...,AN) = A1 + A2 + ... + AN) with the name NAME that will have
 SUB-STATES as its sub-states. The initial state will be choosen by
 STATE-SELECTOR and DEFAULT-STATE. Valid symbols for STATE-SELECTOR are
@@ -119,26 +133,32 @@ with the ENVIRONMENT as their parameter.
 		  :fun #'(lambda (,env-symbol) ,@code)
 		  :name ,name))
 
+
+(defun %create-state-chart (name root environment-type description)
+  (let* ((states (compute-substates root))
+	 (transitions (compute-transitions root '() root))
+	 (events (remove-duplicates (mapcar #'event-name transitions)))
+	 (default-state (first (remove-if-not #'is-default-state states))))
+    (find-final-states-for-transitions states transitions)
+    (make-instance 'statecharts::statechart
+		   :name (string name)
+		   :description description
+		   :root root
+		   :environment-type environment-type
+		   :states states
+		   :transitions transitions
+		   :events events
+		   :default-state default-state)))
+
+
 (defmacro defstatechart ((name &key (environment-type 'sc:environment)
 				    (description ""))
 			 &body definitions)
   (%check-defstatechart-arguments name description definitions)
-  `(let* ((statechart (make-instance 'statecharts::statechart
-				     :name ,(string name)
-				     :description ,description
-				     :environment-type ',environment-type)))
-     (setf (root statechart) (progn ,@definitions)
-	   (states statechart) (compute-substates (root statechart))
-	   (transitions statechart)
-	   (compute-transitions (root statechart) '()
-				(root statechart))
-	   (events statechart) (remove-duplicates
-				(mapcar #'event-name (transitions statechart)))
-	   (default-state statechart) (first (remove-if-not #'is-default-state (states statechart))))
-     (find-final-states-for-transitions (states statechart)
-					(transitions statechart))
-     (defparameter ,name statechart)
-     statechart))
+  `(defparameter ,name (%create-state-chart ',name
+					    (progn ,@definitions)
+					    ',environment-type
+					    ,description)))
 
 
 

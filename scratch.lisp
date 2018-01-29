@@ -6,6 +6,7 @@
 
 (defstatechart (test-states)
   (c "test" (d "X")
+    (s "A")
     (c "X" (d "A")
       (s "A")
       (s "B"))
@@ -15,13 +16,13 @@
     (c "Z" (d "A")
       (s "A")
       (s "B"))
-    (-> "hickup" '("X" "A") '("Y"))
+    (-> "hickup" "A" "Y")
     (-> "poo" "X" "Z")))
 
 
 (defstatechart (test-1)
   (c "H" (d "G")
-    (o "G" (d "X")
+    (o "G" ()
       (c "X" (d "A")
 	(s "A")
 	(s "B"))

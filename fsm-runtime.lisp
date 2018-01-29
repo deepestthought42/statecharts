@@ -2,8 +2,9 @@
 
 
 (defclass statecharts-runtime-fsm ()
-  ((enviroment :initarg :enviroment :accessor enviroment 
-	       :initform (error "Must initialize enviroment."))
+  ((enviroment-type :initarg :enviroment-type :accessor enviroment-type 
+		    :initform (error "Must initialize enviroment-type."))
+   (environment :accessor environment)
    (current-state :initarg :current-state :accessor current-state 
 		  :initform (error "Must initialize current-state."))
    (states :initarg :states :accessor states 
@@ -20,8 +21,15 @@
 				  (format nil "[~a] ~a~%" cat str)
 				  args)))))
 
+(defmethod initialize-instance :after ((obj statecharts-runtime-fsm) &key)
+  (setf (environment obj)
+	(make-instance (environment-type obj) :fsm obj)))
+
 
 (defgeneric signal-event (runtime event))
+
+(defmethod signal-event ((obj environment) event)
+  (signal-event (fsm obj) event))
 
 (defmethod signal-event ((runtime statecharts-runtime-fsm) event)
   (let+ (((&slots current-state enviroment) runtime)

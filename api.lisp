@@ -33,11 +33,17 @@
 		    :given-condition :initform nil))
   (:report (lambda (condition stream)
 	     (format stream "Couldn't determine final state for event: ~a with initial state: ~a ~%~a"
-		     (initial-state condition) (event condition)
+		     (event condition) (initial-state condition)
 		     (if (given-condition condition)
 			 (given-condition condition)
 			 "Unknown reason")))))
 
+(define-condition couldnt-find-default-state (error)
+  ((cluster :accessor cluster :initarg :cluster :initform "unknown")
+   (default-state :accessor default-state :initarg :default-state :initform "unknown"))
+  (:report (lambda (c stream)
+	     (format stream "Couldn't find default state: ~a for cluster: ~a"
+		     (default-state c) (cluster c)))))
 
 (define-condition invalid-chart-syntax (program-error)
   ((message :accessor message :initarg :message :initform nil)

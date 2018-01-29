@@ -84,19 +84,25 @@
 (defclass default-selector (state-selector) ()
   (:default-initargs :name "Default state selector"))
 
-
-(defclass cluster (state)
+(defclass state-with-substates (state)
   ((selector-type :initarg :selector-type :accessor selector-type 
 		  :initform (error "Must initialize selector-type."))
-   (default-state :initarg :default-state :accessor default-state 
-		  :initform (error "Must initialize default-state."))
    (elements :initarg :elements :accessor elements 
 	     :initform (error "Must initialize elements."))))
 
-(defclass orthogonal (cluster) ())
+
+(defclass cluster (state-with-substates)
+  ((default-state :initarg :default-state :accessor default-state 
+		  :initform (error "Must initialize default-state."))))
 
 
-(defclass environment () ())
+(defclass orthogonal (state-with-substates) ())
+
+
+
+(defclass environment ()
+  ((fsm :initarg :fsm :reader fsm 
+	:initform (error "Must initialize fsm."))))
 
 (defgeneric create-environment (environment))
 

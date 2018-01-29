@@ -179,14 +179,15 @@
 	(for ev = (car ev.transitions))
 	(for trans = (cdr ev.transitions))
 	(when trans
-	  (handler-case
+	  (progn ;;handler-case
 	      (in outer
 		  (set-transition s ev (get-final-state states trans)))
-	    (t (c)
-	      (error 'couldnt-determine-final-state
-		     :initial-state s
-		     :event ev
-		     :given-condition c))))))))
+	    ;; (t (c)
+	    ;;   (error 'couldnt-determine-final-state
+	    ;; 	     :initial-state s
+	    ;; 	     :event ev
+	    ;; 	     :given-condition c))
+	    ))))))
 
 
 
@@ -267,7 +268,7 @@
 		   :states flattened-states
 		   :current-state flattened-default-state
 		   :events events
-		   :enviroment (make-instance environment-type))))
+		   :environment-type environment-type)))
 
 
 
