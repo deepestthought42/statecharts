@@ -17,5 +17,6 @@
 	       (:file "state-name")
 	       (:file "fsm-objects")
 	       (:file "fsm-compute")
-	       (:file "dsl-definition")))
+	       (:file "dsl-definition")
+	       (:file "fsm-runtime")))
 

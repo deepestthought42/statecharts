@@ -5,7 +5,7 @@
 ;; let's start by reproducing Fig. 2 of
 
 (defstatechart (test-states)
-  (c "test" (d "X")
+  (c "test" (d "X" :entry (sc:act "adf" (env) (format t "Yes")))
     (s "A")
     (c "X" (d "A")
       (s "A")
@@ -104,3 +104,4 @@
 
 
 
+(flatten-all-states (states test-states))

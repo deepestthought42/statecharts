@@ -2,8 +2,8 @@
 
 
 (defclass statecharts-runtime-fsm ()
-  ((enviroment-type :initarg :enviroment-type :accessor enviroment-type 
-		    :initform (error "Must initialize enviroment-type."))
+  ((environment-type :initarg :environment-type :accessor environment-type 
+		     :initform (error "Must initialize environment-type."))
    (environment :accessor environment)
    (current-state :initarg :current-state :accessor current-state 
 		  :initform (error "Must initialize current-state."))
@@ -32,9 +32,9 @@
   (signal-event (fsm obj) event))
 
 (defmethod signal-event ((runtime statecharts-runtime-fsm) event)
-  (let+ (((&slots current-state enviroment) runtime)
+  (let+ (((&slots current-state environment) runtime)
 	 ((&slots ev->state on-exit) current-state)
-	 ((&ign . ->state) (assoc event ev->state)))
+	 (->state (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
     (cond
       ((not ->state)
@@ -43,14 +43,14 @@
     (labels ((execute-actions (actions)
 	       (iter
 		 (for act in actions)
-		 (funcall (fun act) enviroment))))
+		 (funcall (fun act) environment))))
       (execute-actions (on-exit current-state))
       (setf current-state ->state)
       (execute-actions (on-entry ->state)))))
 
 
 (defmethod signal-event ((runtime debug-statecharts-runtime-fsm) event)
-  (let+ (((&slots current-state enviroment debug-fn) runtime)
+  (let+ (((&slots current-state environment debug-fn) runtime)
 	 ((&slots ev->state on-exit) current-state)
 	 (->state (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
@@ -60,7 +60,7 @@
 	       (iter
 		 (for act in actions)
 		 (dbgout category "Executing:" (name act))
-		 (funcall (fun act) enviroment))))
+		 (funcall (fun act) environment))))
       (cond
 	((not ->state)
 	 (dbgout :signal-event "Couldn't find final state for event: ~a" event)
@@ -71,3 +71,20 @@
       (dbgout :signal-event "Entering state: ~a" (name ->state))
       (setf current-state ->state)
       (execute-actions (on-entry ->state) :on-entry))))
+
+
+
+(defun create-fsm-runtime (statechart &key debug)
+  (let+ (((&slots states events transitions environment-type default-state) statechart)
+	 (states.flattened-states (flatten-all-states states))
+	 (flattened-states (replace-final-states-in-transitions states.flattened-states))
+	 (flattened-default-state
+	  (find-flattened-default-state default-state states.flattened-states)))
+    (make-instance (if debug
+		       'debug-statecharts-runtime-fsm
+		       'statecharts-runtime-fsm)
+		   :default-state flattened-default-state
+		   :states flattened-states
+		   :current-state flattened-default-state
+		   :events events
+		   :environment-type environment-type)))

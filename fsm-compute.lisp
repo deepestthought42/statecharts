@@ -195,15 +195,19 @@
 (defgeneric flatten-state (s new-state))
 
 (defun %flatten-state (s new-state)
-  (setf (on-entry new-state)
-	(append (on-entry new-state)
-		(on-entry s))
-	(on-exit new-state)
-	(append (on-exit new-state)
-		(on-exit s))
-	(defining-state new-state)
-	(append (defining-state new-state)
-		(list (defining-state s)))))
+  (macrolet ((updatef (accessor)
+	       `(let ((val (,accessor s)))
+		  (cond
+		    ((and val (listp val))
+		     (setf (,accessor new-state)
+			   (append (,accessor new-state) val)))
+		    ((and val)
+		     (setf (,accessor new-state)
+			   (append (,accessor new-state) (list val))))))))
+    (updatef on-entry)
+    (updatef on-exit)
+    
+    (updatef defining-state)))
 
 (defmethod flatten-state ((s s) (new-state s))
   (%flatten-state s new-state)
@@ -255,20 +259,6 @@
     (error "This shouldn't happen: Couldn't find flattened default state.")))
 
 
-(defun create-fsm-runtime (statechart &key debug)
-  (let+ (((&slots states events transitions environment-type default-state) statechart)
-	 (states.flattened-states (flatten-all-states states))
-	 (flattened-states (replace-final-states-in-transitions states.flattened-states))
-	 (flattened-default-state
-	  (find-flattened-default-state default-state states.flattened-states)))
-    (make-instance (if debug
-		       'debug-statecharts-runtime-fsm
-		       'statecharts-runtime-fsm)
-		   :default-state flattened-default-state
-		   :states flattened-states
-		   :current-state flattened-default-state
-		   :events events
-		   :environment-type environment-type)))
 
 
 
