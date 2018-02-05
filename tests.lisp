@@ -10,7 +10,7 @@
 	 (s "A")
 	 (s "B"))
        (c "Y" (d "A")
-	 (s "A")
+	 (s "A" :entry (act "test"))
 	 (s "B"))
        (c "Z" (d "A")
 	 (s "A")

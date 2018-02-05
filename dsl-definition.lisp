@@ -128,9 +128,9 @@ with the ENVIRONMENT as their parameter.
   `(statecharts::%s ,name ,description ,entry ,exit))
 
 
-(defmacro act (name (env-symbol) &body code)
+(defmacro act (name &body code)
   `(make-instance 'sc:action
-		  :fun #'(lambda (,env-symbol) ,@code)
+		  :fun #'(lambda () ,@code)
 		  :name ,name))
 
 

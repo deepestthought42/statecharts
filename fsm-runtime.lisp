@@ -32,7 +32,7 @@
   (signal-event (fsm obj) event))
 
 (defmethod signal-event ((runtime statecharts-runtime-fsm) event)
-  (let+ (((&slots current-state environment) runtime)
+  (let+ (((&slots current-state) runtime)
 	 ((&slots ev->state on-exit) current-state)
 	 (->state (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
@@ -43,14 +43,14 @@
     (labels ((execute-actions (actions)
 	       (iter
 		 (for act in actions)
-		 (funcall (fun act) environment))))
+		 (funcall (fun act)))))
       (execute-actions (on-exit current-state))
       (setf current-state ->state)
       (execute-actions (on-entry ->state)))))
 
 
 (defmethod signal-event ((runtime debug-statecharts-runtime-fsm) event)
-  (let+ (((&slots current-state environment debug-fn) runtime)
+  (let+ (((&slots current-state debug-fn) runtime)
 	 ((&slots ev->state on-exit) current-state)
 	 (->state (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
@@ -60,7 +60,7 @@
 	       (iter
 		 (for act in actions)
 		 (dbgout category "Executing:" (name act))
-		 (funcall (fun act) environment))))
+		 (funcall (fun act)))))
       (cond
 	((not ->state)
 	 (dbgout :signal-event "Couldn't find final state for event: ~a" event)
