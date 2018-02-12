@@ -55,15 +55,16 @@
 	 (->state (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
     (labels ((dbgout (cat str &rest args)
-	       (funcall debug-fn cat str args))
+	       (apply debug-fn cat str args))
 	     (execute-actions (actions category)
 	       (iter
 		 (for act in actions)
-		 (dbgout category "Executing:" (name act))
+		 (dbgout category "Executing: ~a" (name act))
 		 (funcall (fun act)))))
+      (dbgout :signal-event "Received event: ~a" event)
       (cond
 	((not ->state)
-	 (dbgout :signal-event "Couldn't find final state for event: ~a" event)
+	 (dbgout :signal-event "Not reacting on event: ~a in state: ~a" event (name current-state))
 	 (return-from signal-event nil))
 	(t (setf ->state (cdr ->state))))
       (dbgout :signal-event "Leaving state: ~a" (name current-state))
