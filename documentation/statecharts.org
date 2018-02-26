@@ -55,6 +55,32 @@ conditions, actions, and additional information such as timing constraints.
 *** for C backend: use plain enums
 *** write backend independent binary format
 - protobuf ?
+* development logbook
+** [2018-02-23 Fri 21:22] associate actions w/transitions instead of w/states
+- first thing: find where two statenames differ
+#+BEGIN_SRC lisp
+(in-package #:statecharts)
+
+
+(defstatechart (test-states)
+  (c "test" (d "X" :entry (sc:act "adf" () (format t "Yes")))
+    (c "X" (d "A")
+      (s "A")
+      (s "B")
+      (-> "alpha" "A" "B")
+      (-> "beta" "B" "A"))
+    (c "Y" (d "A")
+      (s "A")
+      (s "B")
+      (-> "alpha" "B" "A"))
+    (c "Z" (d "A")
+      (s "A")
+      (s "B"))
+    (-> "gamma" "Y" "X")))
+
+
+(create-fsm-runtime test-states)
+#+END_SRC
 * Footnotes
 
 [fn:1] https://www.merriam-webster.com/dictionary/system

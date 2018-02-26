@@ -40,8 +40,18 @@
    (guard :initarg :guard :accessor guard 
 	  :initform (error "Must initialize guard."))))
 
-;;; printing
 
+(defclass tr-target ()
+  ((state :initarg :state :accessor state 
+	  :initform (error "Must initialize state."))
+   (actions :initarg :actions :accessor actions 
+	    :initform (error "Must initialize actions."))
+   (initial-name :initarg :initial-name :accessor initial-name 
+		 :initform (error "Must initialize initial-name."))
+   (final-name :initarg :final-name :accessor final-name 
+	       :initform (error "Must initialize final-name."))))
+
+;;; printing
 
 (defmethod print-object ((obj tr) stream)
   (print-unreadable-object (obj stream)
@@ -77,8 +87,6 @@
 
 
 ;;; state to name comparison
-
-;;; 
 
 (defgeneric state=state-name (state state-name))
 
@@ -135,7 +143,22 @@
 		 (sub-states state-name)
 		 :key #'is-sub-state)))))
 
+;;; create state-name from s
 
+(defgeneric create-state-name (s))
+
+(defmethod create-state-name ((s s))
+  (make-instance 'state-name :name (name s)))
+
+(defmethod create-state-name ((s s-xor))
+  (make-instance 'or-state-name
+		 :name (name s)
+		 :sub-state (create-state-name (sub-state s))))
+
+(defmethod create-state-name ((s s-and))
+  (make-instance 'and-state-name
+		 :name (name s)
+		 :sub-states (mapcar #'create-state-name (sub-states s))))
 
 ;;; default states
 

@@ -125,8 +125,15 @@
     table))
 
 
+
 (defun set-transition (initial-state event-name final-state)
-  (pushnew (cons event-name final-state)
+  (pushnew (cons event-name
+		 (make-instance 'tr-target
+				:state final-state
+				:actions (append (on-exit initial-state)
+						 (on-entry final-state))
+				:initial-name (create-state-name initial-state)
+				:final-name (create-state-name final-state)))
 	   (ev->state initial-state)
 	   :test #'equal))
 
@@ -231,22 +238,19 @@
   (iter
     (for s in states)
     (for new-state =
-	 (make-instance 's :name (with-output-to-string (stream)
-				   (print-s s stream))
+	 (make-instance 's :name (create-state-name s)
 			   :ev->state (copy-seq (ev->state s))))
     (flatten-state s new-state)
     (collect (cons s new-state))))
 
 (defun replace-final-states-in-transitions (states.flattened-states)
   (labels ((flatten-transitions (u)
-	     (setf
-	      (ev->state u)
-	      (iter
-		(for (ev . state) in (ev->state u))
-		(for (state-1 . unchained) = (assoc state states.flattened-states))
-		(if (not unchained)
-		    (error "Couldn't find replacement ? That doesn't make sense."))
-		(collect (cons ev unchained))))
+	     (iter
+	       (for (ev . tr-target) in (ev->state u))
+	       (for (state-1 . unchained) = (assoc (state tr-target) states.flattened-states))
+	       (if (not unchained)
+		   (error "Couldn't find replacement ? That doesn't make sense."))
+	       (setf (state tr-target) unchained))
 	     u))
     (iter
       (for s.u in states.flattened-states)

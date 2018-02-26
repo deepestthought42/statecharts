@@ -35,5 +35,6 @@
    #:signal-event
    #:couldnt-find-default-state
    #:default-state
-   #:create-fsm-runtime))
+   #:create-fsm-runtime
+   #:create-state-name))
 
