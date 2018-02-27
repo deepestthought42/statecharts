@@ -63,9 +63,9 @@ conditions, actions, and additional information such as timing constraints.
 
 
 (defstatechart (test-states)
-  (c "test" (d "X" :entry (sc:act "adf" () (format t "Yes")))
+  (c "test" (d "X")
     (c "X" (d "A")
-      (s "A")
+      (s "A"  :entry (sc:act "adf" () (format t "Yes")))
       (s "B")
       (-> "alpha" "A" "B")
       (-> "beta" "B" "A"))
@@ -81,6 +81,9 @@ conditions, actions, and additional information such as timing constraints.
 
 (create-fsm-runtime test-states)
 #+END_SRC
+* TODOs 
+** TODO guard against two substates with the same name
+
 * Footnotes
 
 [fn:1] https://www.merriam-webster.com/dictionary/system

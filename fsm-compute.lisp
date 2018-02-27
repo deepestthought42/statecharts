@@ -100,19 +100,6 @@
 	    (%make-transitions elements super-state chart-element))))
 
 
-;;; graph of states
-
-(defclass node ()
-  ((name :initarg :name :accessor name 
-	 :initform (error "Must initialize name."))
-   (default :initarg :default :accessor default 
-	    :initform (error "Must initialize default."))
-   (nodes :accessor nodes :initarg :nodes :initform '())))
-
-
-(defgeneric compute-graph (el name list-of-states))
-
-
 ;;; accumulate events
 
 (defun gather-events-from-transitions (transitions)
@@ -125,13 +112,47 @@
     table))
 
 
+(defgeneric recursive-accumulation (s accessor)
+  (:method ((s s) accessor)
+    (list (funcall accessor s)))
+  (:method ((s s-xor) accessor)
+    (append (funcall accessor s)
+	    (recursive-accumulation (sub-state s) accessor)))
+  (:method ((s s-and) accessor)
+    (append (funcall accessor s)
+	    (mapcar #'recursive-accumulation (sub-states s) accessor))))
+
+
+(defun determine-entry/exit-actions (initial final)
+  "Traverses both INITIAL and FINAL recursively at the same time and
+  collects on-entry and on-exit actions seperately only for substates
+  where INITIAL and FINAL differs.
+  => on-entry*, on-exit*"
+  (if (or (eql 's (type-of initial))
+	  (eql 's (type-of final))
+	  (not (string= (name initial) (name final))))
+      (return-from determine-entry/exit-actions
+	(remove-if #'not
+		   (append (recursive-accumulation initial #'on-exit)
+			   (recursive-accumulation final #'on-entry)))))
+  (labels ((sub (s)
+	     (case (type-of s)
+	       (s-xor (sub-state s))
+	       (s-and (let ((subs (sub-states s)))
+			(if (not (= 1 (length s)))
+			    (error "Can't handle more than one sub-state for s-and.")
+			    (first subs)))))))
+    (determine-entry/exit-actions (sub initial) (sub final))))
+
+
+
+
 
 (defun set-transition (initial-state event-name final-state)
   (pushnew (cons event-name
 		 (make-instance 'tr-target
 				:state final-state
-				:actions (append (on-exit initial-state)
-						 (on-entry final-state))
+				:actions (determine-entry/exit-actions initial-state final-state)
 				:initial-name (create-state-name initial-state)
 				:final-name (create-state-name final-state)))
 	   (ev->state initial-state)
@@ -211,9 +232,6 @@
 		    ((and val)
 		     (setf (,accessor new-state)
 			   (append (,accessor new-state) (list val))))))))
-    (updatef on-entry)
-    (updatef on-exit)
-    
     (updatef defining-state)))
 
 (defmethod flatten-state ((s s) (new-state s))
