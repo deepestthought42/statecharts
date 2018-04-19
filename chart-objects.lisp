@@ -38,8 +38,10 @@
 
 
 (defclass tr-target ()
-  ((actions :initarg :actions :accessor actions 
-	    :initform (error "Must initialize actions."))
+  ((on-entry-actions :initarg :on-entry-actions :accessor on-entry-actions 
+		     :initform (error "Must initialize on-entry-actions."))
+   (on-exit-actions :initarg :on-exit-actions :accessor on-exit-actions 
+		    :initform (error "Must initialize on-exit-actions."))
    (initial-name :initarg :initial-name :accessor initial-name 
 		 :initform (error "Must initialize initial-name."))
    (final-name :initarg :final-name :accessor final-name 

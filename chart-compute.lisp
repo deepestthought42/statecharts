@@ -130,14 +130,13 @@
   "Traverses both INITIAL and FINAL recursively at the same time and
   collects on-entry and on-exit actions seperately only for substates
   where INITIAL and FINAL differs.
-  => on-entry*, on-exit*"
+  => on-exit,* on-entry*"
   (if (or (eql 's (type-of initial))
 	  (eql 's (type-of final))
 	  (not (string= (name initial) (name final))))
       (return-from determine-entry/exit-actions
-	(remove-if #'not
-		   (append (recursive-accumulation initial #'on-exit)
-			   (recursive-accumulation final #'on-entry)))))
+	(values (remove-if #'not (recursive-accumulation initial #'on-exit))
+		(remove-if #'not (recursive-accumulation final #'on-entry)))))
   (labels ((sub (s)
 	     (case (type-of s)
 	       (s-xor (sub-state s))
@@ -153,15 +152,18 @@
 
 (defun set-transition (fsm-state initial-state event-name
 		       final-state final-fsm-state)
-  (pushnew (cons event-name
-		 (make-instance 'tr-target
-				:actions (determine-entry/exit-actions initial-state final-state)
-				:initial-name (create-state-name initial-state)
-				:final-name (create-state-name final-state)
-				:fsm-state final-fsm-state))
-	   (ev->state fsm-state)
-	   :test #'equal
-	   :key #'first))
+  (let+ (((&values on-exit-actions on-entry-actions)
+	  (determine-entry/exit-actions initial-state final-state)))
+    (pushnew (cons event-name
+		   (make-instance 'tr-target
+				  :on-entry-actions on-entry-actions
+				  :on-exit-actions on-exit-actions
+				  :initial-name (create-state-name initial-state)
+				  :final-name (create-state-name final-state)
+				  :fsm-state final-fsm-state))
+	     (ev->state fsm-state)
+	     :test #'equal
+	     :key #'first)))
 
 
 
