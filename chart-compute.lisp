@@ -112,14 +112,17 @@
     table))
 
 
+(defun enclose-in-list-if-nec (ob)
+  (if (listp ob) ob (list ob)))
+
 (defgeneric recursive-accumulation (s accessor)
   (:method ((s s) accessor)
-    (list (funcall accessor s)))
+    (enclose-in-list-if-nec (funcall accessor s)))
   (:method ((s s-xor) accessor)
-    (append (funcall accessor s)
+    (append (enclose-in-list-if-nec (funcall accessor s))
 	    (recursive-accumulation (sub-state s) accessor)))
   (:method ((s s-and) accessor)
-    (append (funcall accessor s)
+    (append (enclose-in-list-if-nec (funcall accessor s))
 	    (mapcar #'recursive-accumulation (sub-states s) accessor))))
 
 
@@ -148,15 +151,17 @@
 
 
 
-(defun set-transition (initial-state event-name final-state)
+(defun set-transition (fsm-state initial-state event-name
+		       final-state final-fsm-state)
   (pushnew (cons event-name
 		 (make-instance 'tr-target
-				:state final-state
 				:actions (determine-entry/exit-actions initial-state final-state)
 				:initial-name (create-state-name initial-state)
-				:final-name (create-state-name final-state)))
-	   (ev->state initial-state)
-	   :test #'equal))
+				:final-name (create-state-name final-state)
+				:fsm-state final-fsm-state))
+	   (ev->state fsm-state)
+	   :test #'equal
+	   :key #'first))
 
 
 
@@ -190,15 +195,21 @@
 
 
 
-(defun find-final-states-for-transitions (states transitions)
+(defun set-transitions-for-fsm-states (states fsm-states transitions)
   (labels ((find-events/transition-originating-from-state (s)
 	     (group-by:group-by (remove-if-not
 				 #'(lambda (tr)
 				     (state-described-by-name s (initial-state-name tr)))
 				 transitions)
-				:key #'event-name :value #'identity)))
+				:key #'event-name :value #'identity))
+	   (find-fsm-state (s)
+	     (find (create-state-name s) fsm-states
+		   :key #'name :test #'state-name=)))
     (iter outer
       (for s in states)
+      (for fsm-state = (find-fsm-state s))
+      (if (not fsm-state)
+	  (error "Huh ? couldn't find fsm state for state: ~a" s))
       ;; for every state s
       (iter
 	;; for every event-name and transitions originating in s
@@ -206,84 +217,8 @@
 	     in (find-events/transition-originating-from-state s))
 	(for ev = (car ev.transitions))
 	(for trans = (cdr ev.transitions))
+	(for final-state = (get-final-state states trans))
 	(when trans
-	  (progn ;;handler-case
-	      (in outer
-		  (set-transition s ev (get-final-state states trans)))
-	    ;; (t (c)
-	    ;;   (error 'couldnt-determine-final-state
-	    ;; 	     :initial-state s
-	    ;; 	     :event ev
-	    ;; 	     :given-condition c))
-	    ))))))
-
-
-
-
-(defgeneric flatten-state (s new-state))
-
-(defun %flatten-state (s new-state)
-  (macrolet ((updatef (accessor)
-	       `(let ((val (,accessor s)))
-		  (cond
-		    ((and val (listp val))
-		     (setf (,accessor new-state)
-			   (append (,accessor new-state) val)))
-		    ((and val)
-		     (setf (,accessor new-state)
-			   (append (,accessor new-state) (list val))))))))
-    (updatef defining-state)))
-
-(defmethod flatten-state ((s s) (new-state s))
-  (%flatten-state s new-state)
-  new-state)
-
-(defmethod flatten-state ((s s-and) (new-state s))
-  (%flatten-state s new-state)
-  (iter
-    (for sub-s in (sub-states s))
-    (flatten-state sub-s new-state))
-  new-state)
-
-(defmethod flatten-state ((s s-xor) (new-state s))
-  (%flatten-state s new-state)
-  (if (sub-state s)
-      (flatten-state (sub-state s) new-state))
-  new-state)
-
-
-(defun flatten-all-states (states)
-  (iter
-    (for s in states)
-    (for new-state =
-	 (make-instance 's :name (create-state-name s)
-			   :ev->state (copy-seq (ev->state s))))
-    (flatten-state s new-state)
-    (collect (cons s new-state))))
-
-(defun replace-final-states-in-transitions (states.flattened-states)
-  (labels ((flatten-transitions (u)
-	     (iter
-	       (for (ev . tr-target) in (ev->state u))
-	       (for (state-1 . unchained) = (assoc (state tr-target) states.flattened-states))
-	       (if (not unchained)
-		   (error "Couldn't find replacement ? That doesn't make sense."))
-	       (setf (state tr-target) unchained))
-	     u))
-    (iter
-      (for s.u in states.flattened-states)
-      (for u = (cdr s.u))
-      (collect (flatten-transitions u)))))
-
-(defun find-flattened-default-state (default-state states.flattened-states)
-  (alexandria:if-let (fds (assoc default-state states.flattened-states))
-    (cdr fds)
-    (error "This shouldn't happen: Couldn't find flattened default state.")))
-
-
-
-
-
-
-
-
+	  (in outer
+	      (set-transition fsm-state s ev final-state
+			      (find-fsm-state final-state))))))))

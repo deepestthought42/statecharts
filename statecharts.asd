@@ -15,8 +15,9 @@
 	       (:file "api")
 	       (:file "dsl-objects")
 	       (:file "state-name")
+	       (:file "chart-objects")
+	       (:file "chart-compute")
 	       (:file "fsm-objects")
-	       (:file "fsm-compute")
 	       (:file "dsl-definition")
 	       (:file "fsm-runtime")))
 

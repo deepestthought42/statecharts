@@ -104,4 +104,4 @@
 
 
 
-(flatten-all-states (states test-states))
+(create-fsm-states (states test-states))

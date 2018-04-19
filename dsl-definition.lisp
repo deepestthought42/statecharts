@@ -136,16 +136,18 @@ with the ENVIRONMENT as their parameter.
 
 (defun %create-state-chart (name root environment-type description)
   (let* ((states (compute-substates root))
+	 (fsm-states (create-fsm-states states))
 	 (transitions (compute-transitions root '() root))
 	 (events (remove-duplicates (mapcar #'event-name transitions)))
 	 (default-state (first (remove-if-not #'is-default-state states))))
-    (find-final-states-for-transitions states transitions)
+    (set-transitions-for-fsm-states states fsm-states transitions)
     (make-instance 'statecharts::statechart
 		   :name (string name)
 		   :description description
 		   :root root
 		   :environment-type environment-type
 		   :states states
+		   :fsm-states fsm-states
 		   :transitions transitions
 		   :events events
 		   :default-state default-state)))

@@ -205,6 +205,7 @@
 
 (defmethod print-object ((obj state-name) stream)
   (print-unreadable-object (obj stream)
+    (format stream "name: ")
     (print-state-name obj stream)))
 
 (defmethod print-state-name ((obj state-name) stream)

@@ -81,6 +81,13 @@ conditions, actions, and additional information such as timing constraints.
 
 (create-fsm-runtime test-states)
 #+END_SRC
+** [2018-04-12 Thu 20:15] changed stuff, but now I don't know what is going on
+- ok, need to go through all my types and add a copy-obj method since
+  I am just widely copying stuff now
+- have to think about what that means for function objects
+  - might be best to store symbols instead of objects and then grab
+    (via symbol-function) the function object when constructing the
+    fsm
 * TODOs 
 ** TODO guard against two substates with the same name
 

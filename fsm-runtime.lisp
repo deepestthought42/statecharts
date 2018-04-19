@@ -33,26 +33,25 @@
 
 (defmethod signal-event ((runtime statecharts-runtime-fsm) event)
   (let+ (((&slots current-state) runtime)
-	 ((&slots ev->state on-exit) current-state)
-	 (->state (assoc event ev->state)))
+	 ((&slots ev->state) current-state)
+	 ((&slots state actions) (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
     (cond
-      ((not ->state)
+      ((not state)
        (return-from signal-event nil))
-      (t (setf ->state (cdr ->state))))
+      (t (setf state (cdr state))))
     (labels ((execute-actions (actions)
 	       (iter
 		 (for act in actions)
 		 (funcall (fun act)))))
-      (execute-actions (on-exit current-state))
-      (setf current-state ->state)
-      (execute-actions (on-entry ->state)))))
+      (execute-actions actions)
+      (setf current-state state))))
 
 
 (defmethod signal-event ((runtime debug-statecharts-runtime-fsm) event)
   (let+ (((&slots current-state debug-fn) runtime)
 	 ((&slots ev->state on-exit) current-state)
-	 (->state (assoc event ev->state)))
+	 ((&slots state actions) (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
     (labels ((dbgout (cat str &rest args)
 	       (apply debug-fn cat str args))
@@ -63,29 +62,26 @@
 		 (funcall (fun act)))))
       (dbgout :signal-event "Received event: ~a" event)
       (cond
-	((not ->state)
+	((not state)
 	 (dbgout :signal-event "Not reacting on event: ~a in state: ~a" event (name current-state))
 	 (return-from signal-event nil))
-	(t (setf ->state (cdr ->state))))
+	(t (setf state (cdr state))))
       (dbgout :signal-event "Leaving state: ~a" (name current-state))
-      (execute-actions (on-exit current-state) :on-exit)
-      (dbgout :signal-event "Entering state: ~a" (name ->state))
-      (setf current-state ->state)
-      (execute-actions (on-entry ->state) :on-entry))))
+      (execute-actions actions :actions)
+      (setf current-state state)
+      (dbgout :signal-event "Entered state: ~a" (name state)))))
 
 
 
 (defun create-fsm-runtime (statechart &key debug)
   (let+ (((&slots states events transitions environment-type default-state) statechart)
-	 (states.flattened-states (flatten-all-states states))
-	 (flattened-states (replace-final-states-in-transitions states.flattened-states))
-	 (flattened-default-state
-	  (find-flattened-default-state default-state states.flattened-states)))
+	 (fsm-states (replace-final-states-in-transitions (create-fsm-states states)))
+	 (flattened-default-state (find-flattened-default-state default-state fsm-states)))
     (make-instance (if debug
 		       'debug-statecharts-runtime-fsm
 		       'statecharts-runtime-fsm)
 		   :default-state flattened-default-state
-		   :states flattened-states
+		   :states fsm-states
 		   :current-state flattened-default-state
 		   :events events
 		   :environment-type environment-type)))

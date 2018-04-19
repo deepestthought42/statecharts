@@ -25,6 +25,7 @@
 (defclass statechart (statechart-element)
   ((root :accessor root :initarg :root :initform nil)
    (states :accessor states :initarg :states :initform '())
+   (fsm-states :accessor fsm-states :initarg :fsm-states :initform '())
    (default-state :accessor default-state :initarg :default-state :initform nil)
    (transitions :accessor transitions :initarg :transitions :initform '())
    (events :accessor events :initarg :events :initform '())
