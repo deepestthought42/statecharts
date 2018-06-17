@@ -31,22 +31,25 @@
 (defmethod signal-event ((obj environment) event)
   (signal-event (fsm obj) event))
 
+
 (defmethod signal-event ((runtime statecharts-runtime-fsm) event)
   (let+ (((&slots current-state) runtime)
-	 ((&slots ev->state) current-state)
-	 (( state actions) (assoc event ev->state)))
+	 ((&slots ev->state on-exit) current-state)
+	 (ev.target (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
-    (cond
-      ((not state)
-       (return-from signal-event nil))
-      (t (setf state (cdr state))))
-    (labels ((execute-actions (actions)
+    (labels ((execute-actions (actions category)
+	       (declare (ignore category))
 	       (iter
 		 (for act in actions)
 		 (funcall (fun act)))))
-      (execute-actions actions)
-      (setf current-state state))))
-
+      (cond
+	((not ev.target)
+	 (return-from signal-event nil))
+	(t (let+ (((&slots fsm-state on-exit-actions on-entry-actions)
+		   (cdr ev.target)))
+	     (execute-actions on-exit-actions :actions)
+	     (setf current-state fsm-state)
+	     (execute-actions on-entry-actions :actions)))))))
 
 (defmethod signal-event ((runtime debug-statecharts-runtime-fsm) event)
   (let+ (((&slots current-state debug-fn) runtime)
