@@ -1,9 +1,10 @@
 ;;;; statecharts.asd
 
 (asdf:defsystem #:statecharts
-  :description "Describe statecharts here"
-  :author "Your Name <your.name@example.com>"
-  :license "Specify license here"
+  :description "Lisp implementation of statecharts"
+  :author "R. Klaitter <klawitterrenee@gmail.com>"
+  :version "0.0.1"
+  :license "Apache 2.0"
   :depends-on (#:iterate
 		#:alexandria
 		#:let-plus
