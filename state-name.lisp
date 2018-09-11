@@ -201,11 +201,48 @@
 	     (return nil))
 	 (finally (return t)))))
 
+
+;;; find dsl-object for state-name
+(defgeneric find-dsl-object (state-name dsl-object)
+  (:method ((state-name t) (dsl-object t)) nil))
+
+
+(defmethod find-dsl-object ((state-name state-name) (dsl-object state))
+  (when (string= (name state-name) (name dsl-object)) dsl-object))
+
+(defmethod find-dsl-object ((state-name or-state-name) (dsl-object cluster))
+  (when (string= (name state-name) (name dsl-object))
+    (let ((states (remove-if-not #'(lambda (e) (typep e 'state))
+				 (elements dsl-object))))
+      ;; empty sub-state -> return dsl-object
+      (if (not (sub-state state-name))
+	  dsl-object
+	  (iter
+	    (for s in states)
+	    (for o = (find-dsl-object (sub-state state-name) s))
+	    (if o (return o)))))))
+
+
+(defmethod find-dsl-object ((state-name and-state-name) (dsl-object orthogonal))
+  (when (string= (name state-name) (name dsl-object))
+    (let ((states (remove-if-not #'(lambda (e) (typep e 'state))
+				 (elements dsl-object))))
+      ;; empty sub-state -> return dsl-object
+      (cond
+	((not (sub-states state-name)) dsl-object)
+	((= 1 (length (sub-states state-name)))
+	 (iter
+	   (for s in states)
+	   (for o = (find-dsl-object (first (sub-states state-name)) s))
+	   (if o (return o))))
+	;; maybe throw error here ?
+	(t nil)))))
+
 ;;; printing state-name
 
 (defmethod print-object ((obj state-name) stream)
   (print-unreadable-object (obj stream)
-    (format stream "name: ")
+    (format stream "s: ")
     (print-state-name obj stream)))
 
 (defmethod print-state-name ((obj state-name) stream)

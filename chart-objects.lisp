@@ -26,6 +26,21 @@
 	       :initform (error "Must initialize sub-states."))))
 
 
+(defgeneric get-leaf (s)
+  (:method ((s s)) s)
+  (:method ((s s-xor))
+    (if (not (sub-state s))
+	s (get-leaf (sub-state s))))
+  (:method ((s s-and))
+    (cond
+      ((not (sub-states s)) s)
+      ((= (length (sub-states s)) 1)
+       (get-leaf (first (sub-states s))))
+      (t (error "Cannot determine leaf of s-and with more than one substate.")))))
+
+
+
+
 (defclass tr ()
   ((initial-state-name :initarg :initial-state-name :accessor initial-state-name 
 		       :initform (error "Must initialize initial-state-name."))
@@ -49,14 +64,14 @@
    (fsm-state :initarg :fsm-state :accessor fsm-state 
 	      :initform (error "Must initialize fsm-state."))))
 
+
 ;;; printing
 
 (defmethod print-object ((obj tr) stream)
   (print-unreadable-object (obj stream)
-    (format stream "~a --|~a|--> ~a"
-	    (initial-state-name obj)
-	    (event-name obj)
-	    (final-state-name obj))))
+    (print-state-name (initial-state-name obj) stream)
+    (format stream " --|~a|--> " (event-name obj))
+    (print-state-name (initial-state-name obj) stream)))
 
 
 (defmethod print-object ((obj s) stream)
@@ -209,10 +224,13 @@
 	((and (not s-name) (not (is-default-state sub-s))) (return nil)))
       (finally (return t)))))
 
+
+(defun get-states-described-by-name (lst-of-states state-name)
+  (remove-if-not #'(lambda (s) (state-described-by-name s state-name))
+		 lst-of-states))
+
 (defun get-partial-default-state (lst-of-states state-name)
-  (let+ ((described-states
-	  (remove-if-not #'(lambda (s)
-			     (state-described-by-name s state-name))
-			 lst-of-states)))
+  (let+ ((described-states (get-states-described-by-name lst-of-states state-name)))
     (first (remove-if-not #'(lambda (s) (%is-partial-default-state s state-name)) described-states))))
+
 

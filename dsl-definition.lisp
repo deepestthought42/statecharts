@@ -128,10 +128,11 @@ with the ENVIRONMENT as their parameter.
   `(statecharts::%s ,name ,description ,entry ,exit))
 
 
-(defmacro act (name &body code)
+(defmacro act ((&optional (environment-symbol 'env)) &body code)
   `(make-instance 'sc:action
-		  :fun #'(lambda () ,@code)
-		  :name ,name))
+		  :fun #'(lambda (,environment-symbol)
+			   (declare (ignorable ,environment-symbol))
+			   ,@code)))
 
 
 (defun %create-state-chart (name root environment-type description)
@@ -157,6 +158,7 @@ with the ENVIRONMENT as their parameter.
 				    (description ""))
 			 &body definitions)
   (%check-defstatechart-arguments name description definitions)
+  (clear-id)
   `(defparameter ,name (%create-state-chart ',name
 					    (progn ,@definitions)
 					    ',environment-type

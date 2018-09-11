@@ -5,7 +5,7 @@
 ;; let's start by reproducing Fig. 2 of
 
 (defstatechart (test-states)
-  (c "test" (d "X" :entry (sc:act "adf" (env) (format t "Yes")))
+  (c "test" (d "X" :entry (sc:act "adf" () (format t "Yes")))
     (s "A")
     (c "X" (d "A")
       (s "A")
@@ -105,3 +105,5 @@
 
 
 (create-fsm-states (states test-states))
+
+

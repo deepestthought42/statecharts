@@ -10,7 +10,7 @@
 		#:let-plus
 		#:group-by
 		#:parachute
-		#:cl-dot)
+		#:s-dot2)
   :serial t
   :components ((:file "package")
 	       (:file "api")

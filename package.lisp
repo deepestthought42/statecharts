@@ -36,5 +36,6 @@
    #:couldnt-find-default-state
    #:default-state
    #:create-fsm-runtime
-   #:create-state-name))
+   #:create-state-name
+   #:get-states-described-by-name))
 

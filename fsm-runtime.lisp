@@ -33,7 +33,7 @@
 
 
 (defmethod signal-event ((runtime statecharts-runtime-fsm) event)
-  (let+ (((&slots current-state) runtime)
+  (let+ (((&slots current-state environment) runtime)
 	 ((&slots ev->state on-exit) current-state)
 	 (ev.target (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
@@ -41,7 +41,7 @@
 	       (declare (ignore category))
 	       (iter
 		 (for act in actions)
-		 (funcall (fun act)))))
+		 (funcall (fun act) environment))))
       (cond
 	((not ev.target)
 	 (return-from signal-event nil))
@@ -52,7 +52,7 @@
 	     (execute-actions on-entry-actions :actions)))))))
 
 (defmethod signal-event ((runtime debug-statecharts-runtime-fsm) event)
-  (let+ (((&slots current-state debug-fn) runtime)
+  (let+ (((&slots current-state debug-fn environment) runtime)
 	 ((&slots ev->state on-exit) current-state)
 	 (ev.target (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
@@ -62,7 +62,7 @@
 	       (iter
 		 (for act in actions)
 		 (dbgout category "Executing: ~a" (name act))
-		 (funcall (fun act)))))
+		 (funcall (fun act) environment))))
       (dbgout :signal-event "Received event: ~a" event)
       (cond
 	((not ev.target)

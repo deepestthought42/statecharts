@@ -4,11 +4,15 @@
 
 ;;; objects the statechart DSL evaluates into
 
+(let ((current-id 0))
+  (defun get-id () (incf current-id))
+  (defun clear-id () (setf current-id 0)))
+
 
 (defclass statechart-element ()
-  ((description :accessor description :initarg :description
-		:initform "")
-   (name :initarg :name :accessor name :initform nil)))
+  ((description :accessor description :initarg :description :initform "")
+   (name :initarg :name :accessor name :initform nil)
+   (id :reader id :initform (get-id))))
 
 
 (defmethod initialize-instance :after ((obj statechart-element) &key)
@@ -56,9 +60,7 @@
 	       :initform (error "Must initialize state-name."))))
 
 
-
-
-(defclass action (statechart-element)
+(defclass action ()
   ((fun :accessor fun :initarg :fun :initform (constantly t))))
 
 
