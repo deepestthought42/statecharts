@@ -79,7 +79,7 @@
     (print-s obj stream)))
 
 (defmethod print-s ((obj s) stream)
-  (format stream (name obj)))
+  (format stream "(~a)" (name obj)))
 
 (defmethod print-s ((obj s-xor) stream)
   (format stream "(~a " (name obj))
@@ -195,6 +195,47 @@
 	      (and a b))
 	  (sub-states s)
 	  :key #'is-default-state))
+
+;;; difference between dsl-objects
+
+(defgeneric difference (a b)
+  (:method ((a t) (b t)) (values a b))
+  (:documentation
+   "Returns the states that are found in A but not in B as well as the states that are found
+  in B but not A.
+
+  => in-a-but-not-b*, in-b-but-not-a*"))
+
+(defmethod difference ((a s) (b s))
+  (if (= (id (defining-state a))
+	 (id (defining-state b)))
+      (values '() '())
+      (values (list a) (list b))))
+
+(defmethod difference ((a s-xor) (b s-xor))
+  (if (= (id (defining-state a))
+	 (id (defining-state b)))
+      (difference (sub-state a) (sub-state b))
+      (values (list a) (list b))))
+
+
+(defmethod difference ((a s-and) (b s-and))
+  (cond
+    ((= (id (defining-state a))
+	(id (defining-state b)))
+     (if (not (= (length (sub-states a))
+		 (length (sub-states b))))
+	 (error "This shouldn't be possible."))
+     (iter
+       (for sub-a in (sub-states a))
+       (for sub-b in (sub-states b))
+       (for (values in-a in-b) = (difference sub-a sub-b))
+       (appending in-a into in-a-but-not-b)
+       (appending in-b into in-b-but-not-a)
+       (finally
+	(return
+	  (values in-a-but-not-b in-b-but-not-a)))))
+    (t (list a) (list b))))
 
 
 

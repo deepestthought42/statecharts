@@ -246,7 +246,7 @@
     (print-state-name obj stream)))
 
 (defmethod print-state-name ((obj state-name) stream)
-  (format stream "~a" (name obj)))
+  (format stream "(~a)" (name obj)))
 
 (defmethod print-state-name ((obj or-state-name) stream)
   (format stream "(~a" (name obj))

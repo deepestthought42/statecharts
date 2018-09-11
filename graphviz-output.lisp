@@ -33,11 +33,20 @@
 (defmethod nodes ((s cluster) style-options)
   `(:cluster ((:id ,(format nil "~D_cluster" (id s))) (:label ,(name s))
 	      ,@(style-options s style-options))
-     (:node ((:id ,(format nil "~D" (id s))) (:shape "point") (:style "invis")))
-     ,@(iter
-	 (for e in (elements s))
-	 (for n = (nodes e style-options))
-	 (if n (collect n)))))
+	     (:node ((:id ,(format nil "~D" (id s))) (:shape "point") (:style "invis")))
+	     ,@(iter
+		 (for e in (elements s))
+		 (for n = (nodes e style-options))
+		 (if n (collect n)))))
+
+(defmethod nodes ((s orthogonal) style-options)
+  `(:cluster ((:id ,(format nil "~D_cluster" (id s))) (:label ,(name s))
+	      ,@(style-options s style-options))
+	     (:node ((:id ,(format nil "~D" (id s))) (:shape "point") (:style "invis")))
+	     ,@(iter
+		 (for e in (elements s))
+		 (for n = (nodes e style-options))
+		 (if n (collect n)))))
 
 
 
@@ -74,4 +83,5 @@
 			     (for tr in transitions)
 			     (collect (edge tr style-options root))))))
     (format t "~a" graph)
-    (s-dot:render-s-dot filename output-format graph)))
+    (s-dot:render-s-dot filename output-format graph)
+    graph))

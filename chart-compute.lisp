@@ -126,25 +126,23 @@
 	    (mapcar #'recursive-accumulation (sub-states s) accessor))))
 
 
+
 (defun determine-entry/exit-actions (initial final)
-  "Traverses both INITIAL and FINAL recursively at the same time and
-  collects on-entry and on-exit actions seperately only for substates
-  where INITIAL and FINAL differs.
-  => on-exit,* on-entry*"
-  (if (or (eql 's (type-of initial))
-	  (eql 's (type-of final))
-	  (not (string= (name initial) (name final))))
-      (return-from determine-entry/exit-actions
-	(values (remove-if #'not (recursive-accumulation initial #'on-exit))
-		(remove-if #'not (recursive-accumulation final #'on-entry)))))
-  (labels ((sub (s)
-	     (case (type-of s)
-	       (s-xor (sub-state s))
-	       (s-and (let ((subs (sub-states s)))
-			(if (not (= 1 (length s)))
-			    (error "Can't handle more than one sub-state for s-and.")
-			    (first subs)))))))
-    (determine-entry/exit-actions (sub initial) (sub final))))
+  "Given initial and final state of a transition (in INITIAL and FINAL), determines the
+  difference in states (i.e. the states exited and entered) between the initial and final
+  state. Collects all /on-exit/ actions for all sub-states of INITIAL that are not in FINAL
+  and all /on-entry/ actions for the sub-states that are not in INITIAL but in FINAL:
+
+  + returns :: on-exit*, on-entry*"
+  (labels ((acc (states)
+	     (alexandria:mappend
+	      #'(lambda (s)
+		  (remove-if #'not (recursive-accumulation s #'on-exit)))
+	      states)))
+    (let+ (((&values in-initial-but-not-final
+		     in-final-but-not-initial)
+	    (difference initial final)))
+      (values (acc in-initial-but-not-final) (acc in-final-but-not-initial)))))
 
 
 

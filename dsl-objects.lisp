@@ -88,14 +88,14 @@
   (:default-initargs :name "Default state selector"))
 
 (defclass state-with-substates (state)
-  ((selector-type :initarg :selector-type :accessor selector-type 
-		  :initform (error "Must initialize selector-type."))
-   (elements :initarg :elements :accessor elements 
+  ((elements :initarg :elements :accessor elements 
 	     :initform (error "Must initialize elements."))))
 
 
 (defclass cluster (state-with-substates)
-  ((default-state :initarg :default-state :accessor default-state 
+  ((selector-type :initarg :selector-type :accessor selector-type 
+		  :initform (error "Must initialize selector-type."))
+   (default-state :initarg :default-state :accessor default-state 
 		  :initform (error "Must initialize default-state."))))
 
 

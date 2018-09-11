@@ -62,7 +62,6 @@
      `(make-instance 'orthogonal :name ,name :description ,description
 				 :on-entry ,entry
 				 :on-exit ,exit
-				 :selector-type ',state-selector
 				 :elements (list ,@sub-states)))))
 
 ;;; statechart definition language
@@ -78,7 +77,7 @@ proceed if IF returns true.
   `(statecharts::%t ,initial ,event ,final ,if))
 
 
-(defmacro o (name (&key (state-selector 'd) (description "") entry exit)
+(defmacro o (name (&key (description "") entry exit)
 	     &body sub-states)
   "Returns an object of type ORTHOGONAL (with its sub-states being
 active at the same time, i.e. a logical conjunction of the sub-states:
@@ -93,8 +92,8 @@ functions of one variable and will be called with the ENVIRONMENT as
 their parameter.
 
 => ORTHOGONAL"
-  `(%superstate orthogonal ,name ,state-selector nil
-     ,description ,entry ,exit ,sub-states))
+  `(%superstate orthogonal ,name nil nil
+		,description ,entry ,exit ,sub-states))
 
 (defmacro c (name (state-selector default-state &key (description "") entry exit)
 	     &body sub-states)

@@ -37,5 +37,6 @@
    #:default-state
    #:create-fsm-runtime
    #:create-state-name
-   #:get-states-described-by-name))
+   #:get-states-described-by-name
+   #:render-to-dot))
 
