@@ -38,5 +38,6 @@
    #:create-fsm-runtime
    #:create-state-name
    #:get-states-described-by-name
-   #:render-to-dot))
+   #:render-to-uml
+   #:render))
 

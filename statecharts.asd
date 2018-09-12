@@ -9,8 +9,7 @@
 		#:alexandria
 		#:let-plus
 		#:group-by
-		#:parachute
-		#:s-dot2)
+		#:parachute)
   :serial t
   :components ((:file "package")
 	       (:file "api")
@@ -20,5 +19,6 @@
 	       (:file "chart-compute")
 	       (:file "fsm-objects")
 	       (:file "dsl-definition")
-	       (:file "fsm-runtime")))
+	       (:file "fsm-runtime")
+	       (:file "uml-output")))
 

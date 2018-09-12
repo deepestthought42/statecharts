@@ -102,6 +102,17 @@
 (defclass orthogonal (state-with-substates) ())
 
 
+(defmethod print-object ((obj state) stream)
+  (print-unreadable-object (obj stream)
+    (format stream "s: ~a" (name obj))))
+
+(defmethod print-object ((obj cluster) stream)
+  (print-unreadable-object (obj stream)
+    (format stream "c: ~a" (name obj))))
+
+(defmethod print-object ((obj orthogonal) stream)
+  (print-unreadable-object (obj stream)
+    (format stream "o: ~a" (name obj))))
 
 (defclass environment ()
   ((fsm :initarg :fsm :reader fsm 
