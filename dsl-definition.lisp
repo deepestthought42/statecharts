@@ -42,8 +42,6 @@
 ;;;; helper macros
 
 
-
-
 (defmacro %superstate (type name state-selector default-state description entry exit sub-states)
   (case type
     (cluster
@@ -66,7 +64,7 @@
 
 ;;; statechart definition language
 
-(defmacro -> (event initial final &key if)
+(defmacro -> (event initial final &key when-in-state)
   "Given event with name EVENT, construct an object of type TRANSITION
 from initial state with name INITIAL to final state with name
 FINAL. If IF is non-nil, it is assumed to be a function of one
@@ -74,7 +72,7 @@ parameter, the statechart ENVIRONMENT and the transition will only
 proceed if IF returns true.
 
 ==> TRANSITION"
-  `(statecharts::%t ,initial ,event ,final ,if))
+  `(statecharts::%t ,initial ,event ,final ,when-in-state))
 
 
 (defmacro o (name (&key (description "") entry exit)
@@ -126,6 +124,10 @@ with the ENVIRONMENT as their parameter.
 => STATE"
   `(statecharts::%s ,name ,description ,entry ,exit))
 
+
+(defmacro :or (&rest guards))
+
+(defmacro :and (&rest guards))
 
 (defmacro act ((&optional (environment-symbol 'env)) &body code)
   `(make-instance 'sc:action

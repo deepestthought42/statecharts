@@ -62,6 +62,7 @@
   (with-open-file (stream filename
 			  :direction :output :if-exists if-exists)
     (format stream "@startuml~%")
+    (format stream "hide empty description~%")
     (nodes root stream)
     (iter
       (for tr in (compute-transitions root '() root))
