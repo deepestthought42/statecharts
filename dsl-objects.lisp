@@ -52,10 +52,10 @@
 	(alexandria:symbolicate (event obj))))
 
 
-(defclass guard ()
+(defclass conditional ()
   ((description :initarg :description :accessor description :initform "")))
 
-(defclass state-guard (guard)
+(defclass in-state (conditional)
   ((state-name :initarg :state-name :accessor state-name 
 	       :initform (error "Must initialize state-name."))))
 
@@ -63,6 +63,9 @@
 (defclass action ()
   ((fun :accessor fun :initarg :fun :initform (constantly t))))
 
+(defclass activity ()
+  ((start-fun :accessor start-fun :initarg :start-fun :initform (constantly t))
+   (stop-fun :accessor stop-fun :initarg :stop-fun :initform (constantly t))))
 
 (defclass state (statechart-element)
   ((on-entry :initarg :on-entry

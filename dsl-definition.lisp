@@ -173,3 +173,17 @@ with the ENVIRONMENT as their parameter.
 
 
 
+
+;; (in-readtable :fare-quasiquote)
+
+
+
+;; (defun parse (list)
+;;   (match ))
+
+
+
+;; (defun dsl (&rest statechart-description)
+;;   "Parse statecharts DSL ")
+
+

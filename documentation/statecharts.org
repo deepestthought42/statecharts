@@ -42,7 +42,7 @@ situation or occurrence associated with a point in spacetime (that is, a specifi
 and time). A state transition is explicity defined as an event. 
 ** Transition
 A change of state.
-** 
+
 ** reactive system
 <<reactive>> As opposed to a transformational system, a reactive system is characterized
 by being event driven, continuously having to react to external and internal stimuli.
@@ -55,6 +55,15 @@ conditions, actions, and additional information such as timing constraints.
 *** for C backend: use plain enums
 *** write backend independent binary format
 - protobuf ?
+** redoing how I define a statechart with a DSL
+first thing to come up with, elements of the DSL
+*** Elements of the DSL
+- [ ] leaf state :: inidicated by :state, :s, :st
+- [ ] orthogonal state :: indicated by :p, :orth, :orthogonal, :and, :.
+- [ ] cluster :: indicated by :or, :c, :cluster, :+
+- [ ] transition :: indicated by :t, :->, :trans, :transition
+- [ ] condition :: indicated by :if, :given, :when
+- [ ] actions :: indicated by :on-entry, :on-exit, :
 * development logbook
 ** [2018-02-23 Fri 21:22] associate actions w/transitions instead of w/states
 - first thing: find where two statenames differ

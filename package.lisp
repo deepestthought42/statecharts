@@ -1,7 +1,7 @@
 ;;;; package.lisp
 
 (defpackage #:statecharts
-  (:use #:cl #:iterate #:let-plus)
+  (:use #:cl #:iterate #:let-plus #:trivia)
   (:nicknames #:sc)
   (:export
    #:statechart-element

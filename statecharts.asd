@@ -9,6 +9,8 @@
 		#:alexandria
 		#:let-plus
 		#:group-by
+		#:trivia
+		#:trivia.quasiquote
 		#:parachute)
   :serial t
   :components ((:file "package")
