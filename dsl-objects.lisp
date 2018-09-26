@@ -118,8 +118,9 @@
     (format stream "o: ~a" (name obj))))
 
 (defclass environment ()
-  ((fsm :initarg :fsm :reader fsm 
-	:initform (error "Must initialize fsm."))))
+  ((fsm :initarg :fsm :reader fsm))
+  (:default-initargs
+   :fsm (error "Must initialize fsm.")))
 
 (defgeneric create-environment (environment))
 
