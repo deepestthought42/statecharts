@@ -136,7 +136,7 @@ with the ENVIRONMENT as their parameter.
 			   ,@code)))
 
 
-(defun %create-state-chart (name root environment-type description)
+(defun %create-state-chart (name root description)
   (let* ((states (compute-substates root))
 	 (fsm-states (create-fsm-states states))
 	 (transitions (compute-transitions root '() root))
@@ -147,7 +147,6 @@ with the ENVIRONMENT as their parameter.
 		   :name (string name)
 		   :description description
 		   :root root
-		   :environment-type environment-type
 		   :states states
 		   :fsm-states fsm-states
 		   :transitions transitions
@@ -155,14 +154,12 @@ with the ENVIRONMENT as their parameter.
 		   :default-state default-state)))
 
 
-(defmacro defstatechart ((name &key (environment-type 'sc:environment)
-				    (description ""))
+(defmacro defstatechart ((name &key (description ""))
 			 &body definitions)
   (%check-defstatechart-arguments name description definitions)
   (clear-id)
   `(defparameter ,name (%create-state-chart ',name
 					    (progn ,@definitions)
-					    ',environment-type
 					    ,description)))
 
 

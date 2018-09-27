@@ -32,10 +32,7 @@
    (fsm-states :accessor fsm-states :initarg :fsm-states :initform '())
    (default-state :accessor default-state :initarg :default-state :initform nil)
    (transitions :accessor transitions :initarg :transitions :initform '())
-   (events :accessor events :initarg :events :initform '())
-   (environment-type :accessor environment-type
-		     :initarg :environment-type
-		     :initform nil)))
+   (events :accessor events :initarg :events :initform '())))
 
 (defclass transition (statechart-element)
   ((event :initarg :event :accessor event 

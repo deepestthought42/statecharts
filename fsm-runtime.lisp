@@ -2,10 +2,7 @@
 
 
 (defclass statecharts-runtime-fsm ()
-  ((environment-type :initarg :environment-type :accessor environment-type 
-		     :initform (error "Must initialize environment-type."))
-   (environment :accessor environment)
-   (current-state :initarg :current-state :accessor current-state 
+  ((current-state :initarg :current-state :accessor current-state 
 		  :initform (error "Must initialize current-state."))
    (states :initarg :states :accessor states 
 	   :initform (error "Must initialize states."))
@@ -21,19 +18,12 @@
 				  (format nil "[~a] ~a~%" cat str)
 				  args)))))
 
-(defmethod initialize-instance :after ((obj statecharts-runtime-fsm) &key)
-  (setf (environment obj)
-	(make-instance (environment-type obj) :fsm obj)))
 
 
-(defgeneric signal-event (runtime event))
-
-(defmethod signal-event ((obj environment) event)
-  (signal-event (fsm obj) event))
 
 
-(defmethod signal-event ((runtime statecharts-runtime-fsm) event)
-  (let+ (((&slots current-state environment) runtime)
+(defmethod %signal-event ((runtime statecharts-runtime-fsm) event environment)
+  (let+ (((&slots current-state) runtime)
 	 ((&slots ev->state on-exit) current-state)
 	 (ev.target (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
@@ -44,15 +34,15 @@
 		 (funcall (fun act) environment))))
       (cond
 	((not ev.target)
-	 (return-from signal-event nil))
+	 (return-from %signal-event nil))
 	(t (let+ (((&slots fsm-state on-exit-actions on-entry-actions)
 		   (cdr ev.target)))
 	     (execute-actions on-exit-actions :actions)
 	     (setf current-state fsm-state)
 	     (execute-actions on-entry-actions :actions)))))))
 
-(defmethod signal-event ((runtime debug-statecharts-runtime-fsm) event)
-  (let+ (((&slots current-state debug-fn environment) runtime)
+(defmethod %signal-event ((runtime debug-statecharts-runtime-fsm) event environment)
+  (let+ (((&slots current-state debug-fn) runtime)
 	 ((&slots ev->state on-exit) current-state)
 	 (ev.target (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
@@ -61,13 +51,13 @@
 	     (execute-actions (actions category)
 	       (iter
 		 (for act in actions)
-		 (dbgout category "Executing: ~a" (name act))
+		 (dbgout category "Executing: ~a" (documentation (fun act) 'function))
 		 (funcall (fun act) environment))))
       (dbgout :signal-event "Received event: ~a" event)
       (cond
 	((not ev.target)
 	 (dbgout :signal-event "Not reacting on event: ~a in state: ~a" event (name current-state))
-	 (return-from signal-event nil))
+	 (return-from %signal-event nil))
 	(t (let+ (((&slots fsm-state on-exit-actions on-entry-actions)
 		   (cdr ev.target)))
 	     (dbgout :signal-event "Leaving state: ~a" (name current-state))
@@ -77,9 +67,16 @@
 	     (execute-actions on-entry-actions :actions)))))))
 
 
+(defgeneric signal-event (environment event))
+
+(defmethod signal-event ((environment environment) event)
+  (%signal-event (fsm environment) event environment))
+
+
+
 
 (defun create-fsm-runtime (statechart &key debug)
-  (let+ (((&slots events fsm-states environment-type default-state) statechart)
+  (let+ (((&slots events fsm-states default-state) statechart)
 	 (default-fsm-state (find (create-state-name default-state)
 				  fsm-states :test #'state-name=
 				  :key #'name)))
@@ -91,5 +88,4 @@
 		   :default-state default-fsm-state
 		   :states fsm-states
 		   :current-state default-fsm-state
-		   :events events
-		   :environment-type environment-type)))
+		   :events events)))

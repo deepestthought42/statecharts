@@ -123,7 +123,7 @@
 	    (recursive-accumulation (sub-state s) accessor)))
   (:method ((s s-and) accessor)
     (append (enclose-in-list-if-nec (funcall accessor s))
-	    (mapcar #'(lambda (s) (recursive-accumulation s accessor)) (sub-states s)))))
+	    (alexandria:mappend #'(lambda (s) (recursive-accumulation s accessor)) (sub-states s)))))
 
 
 
@@ -134,15 +134,15 @@
   and all /on-entry/ actions for the sub-states that are not in INITIAL but in FINAL:
 
   + returns :: on-exit*, on-entry*"
-  (labels ((acc (states)
+  (labels ((acc (states accessor)
 	     (alexandria:mappend
 	      #'(lambda (s)
-		  (remove-if #'not (recursive-accumulation s #'on-exit)))
+		  (remove-if #'not (recursive-accumulation s accessor)))
 	      states)))
     (let+ (((&values in-initial-but-not-final
 		     in-final-but-not-initial)
 	    (difference initial final)))
-      (values (acc in-initial-but-not-final) (acc in-final-but-not-initial)))))
+      (values (acc in-initial-but-not-final #'on-exit) (acc in-final-but-not-initial #'on-entry)))))
 
 
 
@@ -219,6 +219,5 @@
 	(for trans = (cdr ev.transitions))
 	(for final-state = (get-final-state states trans))
 	(when trans
-	  (in outer
-	      (set-transition fsm-state s ev final-state
-			      (find-fsm-state final-state))))))))
+	  (set-transition fsm-state s ev final-state
+			  (find-fsm-state final-state)))))))
