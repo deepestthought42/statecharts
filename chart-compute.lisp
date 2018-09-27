@@ -123,7 +123,7 @@
 	    (recursive-accumulation (sub-state s) accessor)))
   (:method ((s s-and) accessor)
     (append (enclose-in-list-if-nec (funcall accessor s))
-	    (mapcar #'recursive-accumulation (sub-states s) accessor))))
+	    (mapcar #'(lambda (s) (recursive-accumulation s accessor)) (sub-states s)))))
 
 
 

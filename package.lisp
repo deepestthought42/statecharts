@@ -39,5 +39,6 @@
    #:create-state-name
    #:get-states-described-by-name
    #:render-to-uml
-   #:render))
+   #:render
+   #:fsm))
 
