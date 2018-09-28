@@ -9,7 +9,12 @@
    (default-state :initarg :default-state :accessor default-state 
 		  :initform (error "Must initialize default-state."))
    (events :initarg :events :accessor events 
-	   :initform (error "Must initialize events."))))
+	   :initform (error "Must initialize events."))
+   (event-queue :accessor event-queue :initarg :event-queue)
+   (processing :accessor processing :initarg :processing))
+  (:default-initargs
+   :processing nil
+   :event-queue (queues:make-queue :simple-queue)))
 
 (defclass debug-statecharts-runtime-fsm (statecharts-runtime-fsm)
   ((debug-fn :accessor debug-fn :initarg :debug-fn
@@ -69,8 +74,20 @@
 
 (defgeneric signal-event (environment event))
 
-(defmethod signal-event ((environment environment) event)
-  (%signal-event (fsm environment) event environment))
+(defmethod signal-event ((environment environment) new-event)
+  (let+ (((&slots fsm) environment)
+	 ((&slots event-queue processing) fsm))
+    (queues:qpush event-queue new-event)
+    (unless processing
+      (handler-case
+	  (progn
+	    (setf processing t)
+	    (iter
+	      (for (values event event-returned)
+		   = (queues:qpop event-queue))
+	      (while event-returned)
+	      (%signal-event fsm event environment)))
+	(t () (setf processing nil))))))
 
 
 

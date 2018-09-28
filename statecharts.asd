@@ -11,7 +11,8 @@
 		#:group-by
 		#:trivia
 		#:trivia.quasiquote
-		#:parachute)
+		#:parachute
+		#:queues.simple-queue)
   :serial t
   :components ((:file "package")
 	       (:file "api")
