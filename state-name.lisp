@@ -228,6 +228,12 @@
 
 (defmethod difference-state-names ((a or-state-name) (b or-state-name))
   (cond
+    ((and (string= (name a) (name b))
+	  (sub-state a) (not (sub-state b)))
+     (copy-state-name a))
+    ((and (string= (name a) (name b))
+	  (not (sub-state a)))
+     '())
     ((string= (name a) (name b))
      (let ((diff (difference-state-names (sub-state a) (sub-state b))))
        (if diff

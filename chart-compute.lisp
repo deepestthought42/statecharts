@@ -177,12 +177,20 @@
 	 (full-initial-state-name (create-state-name initial-state))
 	 (diff-full-initial (difference-state-names full-initial-state-name trans-init-state-name))
 	 (states-for-final-state-name (get-states-described-by-name all-states trans-final-state-name))
-	 (final-states (if diff-full-initial
-			   (get-states-described-by-name states-for-final-state-name diff-full-initial)
-			   states-for-final-state-name)))
-    (if (> (length final-states) 1)
-	(get-partial-default-state final-states trans-final-state-name)
-	(first final-states))))
+	 (final-states
+	  (cond
+	    ((and diff-full-initial
+		  (state-name= diff-full-initial
+			       full-initial-state-name))
+	     states-for-final-state-name)
+	    (diff-full-initial
+	     (get-states-described-by-name states-for-final-state-name diff-full-initial))
+	    (t states-for-final-state-name))))
+    (cond
+      ((not final-states) (error "Couldn't find final state ?"))
+      ((> (length final-states) 1)
+       (get-partial-default-state final-states trans-final-state-name))
+      (t (first final-states)))))
 
 
 
