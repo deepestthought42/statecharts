@@ -111,7 +111,9 @@
 
 (defstatechart (test-states)
   (c "G" (d "Z")
-    (s "Z")
+    (c "Z" (d "A")
+      (s "A")
+      (s "B"))
     (o "X" ()
       (c "A" (sc:d "1")
 	(s "1")
@@ -148,5 +150,10 @@
     (-> "init" "Z" "X")))
 
 (create-fsm-runtime test-states-2)
+
+(difference-state-names (make-state-name '("G" "Z" "A") (root test-states))
+			(make-state-name '("G" "Z" "B") (root test-states)))
+
+
 
 

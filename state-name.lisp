@@ -20,18 +20,18 @@
 ;; the dsl to address states is simple:
 ;; - "A" references the state with name "A" in the current superstate
 ;;  
-;; - ("H" "A") references the the substate(s) "A" of state "H" within
+;; - ("H" "A") references the the substate "A" of state "H" within
 ;;   the current superstate
 ;; - ("H" ("A" "B") ("C" "D")) references  the substate(s) of
-;;   the orthogonal cluster "H"; each element following :and is treated
-;;   as a substate; since a substate of an orthogonal cluster is always 
+;;   the orthogonal cluster "H"; since a substate of an orthogonal cluster is always 
 ;;   active, just the name of the substate (e.g. "A") is nonsensical
 
+
+;; fixmee: should have done this with pattern matching ... 
 
 (defun make-state-name (state-description chart-element &optional super-state)
   (labels ((throw-invalid (reason &rest args)
 	     (error 'invalid-state-descriptor :descriptor state-description
-					      :chart-element chart-element
 					      :reason (apply #'format nil reason args)))
 	   (find-element (state-name elements)
 	     (alexandria:if-let (sub-s (find state-name (remove-if-not #'state-p elements)
@@ -260,7 +260,8 @@
 
 ;;; compare state names
 
-(defgeneric state-name= (a b))
+(defgeneric state-name= (a b)
+  (:documentation "Returns true for objects A, B of type STATE-NAME that are same."))
 
 (defmethod state-name= ((a state-name) (b t)) nil)
 (defmethod state-name= ((a t) (b state-name)) nil)
@@ -286,6 +287,9 @@
 
 ;;; find dsl-object for state-name
 (defgeneric find-dsl-object (state-name dsl-object)
+  (:documentation "Given a state-name in STATE-NAME, will return the branch of DSL-OBJECT
+  that corresponds to STATE-NAME. Returns NIL if it cannot find a dsl-object that
+  correpsonds to STATE-NAME.")
   (:method ((state-name t) (dsl-object t)) nil))
 
 

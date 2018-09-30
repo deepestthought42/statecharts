@@ -58,7 +58,7 @@
 		 (for act in actions)
 		 (dbgout category "Executing: ~a" (documentation (fun act) 'function))
 		 (funcall (fun act) environment))))
-      (dbgout :signal-event "Received event: ~a" event)
+g      (dbgout :signal-event "Received event: ~a" event)
       (cond
 	((not ev.target)
 	 (dbgout :signal-event "Not reacting on event: ~a in state: ~a" event (name current-state))

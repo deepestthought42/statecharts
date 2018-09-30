@@ -31,8 +31,7 @@
   (let+ (((&slots name elements) ortho)
 	 (lst-of-lst-of-substates
 	  (remove-if #'not
-		     (mapcar #'(lambda (s) (compute-substates s))
-			     elements))))
+		     (mapcar #'(lambda (s) (compute-substates s)) elements))))
     (labels ((combine-elements (super-lst) 
 	       (cond
 		 ((not (cdr super-lst))
@@ -165,7 +164,13 @@
 
 
 (defun determine-final-states (all-states initial-state transitions)
+  ;;; probably not the most effective, but it seems to work. there is also a lot of
+  ;;; consing going on here, so if we find that we have a performance problem upon
+  ;;; creating a sc, start here.
   (let+ (((&values trans-init-state-name trans-final-state-name)
+	  ;; join the transitions names if more than one transition exists; if we have
+	  ;; transitions that are incompatible, it should be noticed when joining the
+	  ;; names
 	  (cond ((not transitions)
 		 (error "No transitions given found for initial state: ~a ?" initial-state))
 		((= (length transitions) 1)
@@ -174,22 +179,45 @@
 		(t
 		 (values (reduce #'join-state-names (mapcar #'initial-state-name transitions))
 			 (reduce #'join-state-names (mapcar #'final-state-name transitions))))))
+	 ;; try finding states that are described by TRANS-FINAL-STATE-NAME
+	 (possible-final-state-names
+	  (alexandria:if-let (tfsn (get-states-described-by-name all-states trans-final-state-name))
+	    tfsn (error "Couldn't find states described by final-state: ~a of transition: ~a"
+			trans-final-state-name trans-final-state-name)))
+	 ;; since we work on state-names, create one for INITIAL-STATE
 	 (full-initial-state-name (create-state-name initial-state))
-	 (diff-full-initial (difference-state-names full-initial-state-name trans-init-state-name))
-	 (states-for-final-state-name (get-states-described-by-name all-states trans-final-state-name))
+	 ;; calculate the states that are defined in the current state (as given by
+	 ;; FULL-INITIAL-STATE-NAME) but are not described by the initial-state of
+	 ;; TRANSITIONS
+	 (in-current-state-but-not-trans (difference-state-names full-initial-state-name
+								 trans-init-state-name))
+	 ;; select FINAL-STATES from possible states such that orthogonal states not
+	 ;; affected by TRANSITIONS stay the same 
 	 (final-states
 	  (cond
-	    ((and diff-full-initial
-		  (state-name= diff-full-initial
-			       full-initial-state-name))
-	     states-for-final-state-name)
-	    (diff-full-initial
-	     (get-states-described-by-name states-for-final-state-name diff-full-initial))
-	    (t states-for-final-state-name))))
+	    ;; FULL-INITIAL-STATE-NAME might be a more specific or state, so it will be
+	    ;; return, e.g: ("A" ("Z" "X")), ("A" "Y") => ("A" ("Z" "X"))
+	    ;;
+	    ;; if that is the case, all states described by the final-state-name from
+	    ;; TRANSITIONS are possible
+	    ((and in-current-state-but-not-trans (state-name= in-current-state-but-not-trans
+							      full-initial-state-name))
+	     possible-final-state-names)
+	    ;; when we have orthogonal states not described by TRANSITIONS, e.g.:
+	    ;;
+	    ;; ("A" ("A" "A")^("B" "A")) with transition defined as ("A" ("A" "A")) ->
+	    ;; ("A" ("A" "B"))
+	    
+	    (in-current-state-but-not-trans (get-states-described-by-name possible-final-state-names
+									  in-current-state-but-not-trans))
+	    ;; no orthogonal states involved
+	    (t possible-final-state-names))))
     (cond
       ((not final-states) (error "Couldn't find final state ?"))
+      ;; final states not completely specified, need to select default state
       ((> (length final-states) 1)
        (get-partial-default-state final-states trans-final-state-name))
+      ;; final state completely specified
       (t (first final-states)))))
 
 
