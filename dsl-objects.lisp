@@ -58,7 +58,8 @@
 
 
 (defclass action ()
-  ((fun :accessor fun :initarg :fun :initform (constantly t))))
+  ((fun :accessor fun :initarg :fun :initform (constantly t))
+   (code :accessor code :initarg :code :initform '())))
 
 (defclass activity ()
   ((start-fun :accessor start-fun :initarg :start-fun :initform (constantly t))

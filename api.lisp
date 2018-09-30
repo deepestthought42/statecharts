@@ -26,6 +26,15 @@
 		     (state-a condition) (state-b condition)
 		     (reason condition)))))
 
+(define-condition couldnt-intersect-state-names (error)
+  ((state-a :accessor state-a :initarg :state-a :initform nil)
+   (state-b :accessor state-b :initarg :state-b :initform nil)
+   (reason :accessor reason :initarg :reason :initform "not given"))
+  (:report (lambda (condition stream)
+	     (format stream "Couldn't intersect states: ~a and ~a ~%~a"
+		     (state-a condition) (state-b condition)
+		     (reason condition)))))
+
 (define-condition couldnt-determine-final-state (error)
   ((initial-state :accessor initial-state :initarg :initial-state :initform nil)
    (event :accessor event :initarg :event :initform "not given")

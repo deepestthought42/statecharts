@@ -176,6 +176,82 @@
       (t (throw-couldnt-join-state-names a b "States do no not match.")))))
 
 
+;;; intersection ops
+(defgeneric intersect-state-names (a b)
+  (:method (a b) (make-instance 'state-name :name (name a))))
+
+
+
+(defmethod intersect-state-names ((a state-name) (b state-name))
+  (cond
+    ((string= (name a) (name b)) '())
+    (t (make-instance 'state-name :name (name a)))))
+
+(defmethod intersect-state-names ((a or-state-name) (b or-state-name))
+  (cond
+    ((string= (name a) (name b))
+     (alexandria:if-let (substate (intersect-state-names (sub-state a) (sub-state b)))
+       (make-instance 'or-state-name
+		      :name (name a)
+		      :sub-state substate)))
+    (t '())))
+
+(defmethod intersect-state-names ((a and-state-name) (b and-state-name))
+  (cond
+    ((string= (name a) (name b))
+     (let (substates-a substates-b)
+       (iter
+	 (for sub-a in (sub-states a))
+	 (for sub-b = (find (name sub-a) (sub-states b)
+			    :key #'name :test #'string=))
+	 (when (and sub-a sub-b)
+	   (push sub-a substates-a)
+	   (push sub-b substates-b)))
+       (alexandria:if-let (subs (remove-if #'not
+					   (mapcar #'intersect-state-names
+						   substates-a substates-b)))
+	 (make-instance 'and-state-name :name (name a) :sub-states subs))))
+    (t '())))
+
+
+;;; set-difference-state-names
+
+(defgeneric difference-state-names (a b)
+  (:method (a b) '()))
+
+
+
+(defmethod difference-state-names ((a state-name) (b state-name))
+  (cond
+    ((string= (name a) (name b)) '())
+    (t (copy-state-name a))))
+
+(defmethod difference-state-names ((a or-state-name) (b or-state-name))
+  (cond
+    ((string= (name a) (name b))
+     (let ((diff (difference-state-names (sub-state a) (sub-state b))))
+       (if diff
+	   (make-instance 'or-state-name
+			  :name (name a)
+			  :sub-state (copy-state-name diff)))))
+    (t (copy-state-name a))))
+
+(defmethod difference-state-names ((a and-state-name) (b and-state-name))
+  (cond
+    ((string= (name a) (name b))
+     (let (diff)
+       (iter
+	 (for sub-a in (sub-states a))
+	 (for sub-b = (find (name sub-a) (sub-states b)
+			    :key #'name :test #'string=))
+	 (cond
+	   ((not sub-b) (push (copy-state-name sub-a) diff))
+	   (t (push (difference-state-names sub-a sub-b) diff))))
+       (alexandria:if-let (diff (remove-if #'not diff))
+	 (make-instance 'and-state-name :name (name a) :sub-states diff))))
+    (t (copy-state-name a))))
+
+
 ;;; compare state names
 
 (defgeneric state-name= (a b))
@@ -267,3 +343,6 @@
 		   (print-state-name s stream))
 	   (cdr sub-states))))
   (format stream ")"))
+
+
+

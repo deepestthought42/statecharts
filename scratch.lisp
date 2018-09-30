@@ -5,7 +5,7 @@
 ;; let's start by reproducing Fig. 2 of
 
 (defstatechart (test-states)
-  (c "test" (d "X" :entry (sc:act "adf" () (format t "Yes")))
+  (c "test" (d "X" :entry (sc:act () (format t "Yes")))
     (s "A")
     (c "X" (d "A")
       (s "A")
@@ -105,5 +105,48 @@
 
 
 (create-fsm-states (states test-states))
+
+
+
+
+(defstatechart (test-states)
+  (c "G" (d "Z")
+    (s "Z")
+    (o "X" ()
+      (c "A" (sc:d "1")
+	(s "1")
+	(s "2")
+	(-> "A to-2" "1" "2")
+	(-> "A to-1" "2" "1"))
+      (c "B" (sc:d "1")
+	(s "1")
+	(s "2")
+	(-> "B to-2" "1" "2")
+	(-> "B to-1" "2" "1")))
+    (-> "init" "Z" "X")))
+
+(create-fsm-runtime test-states)
+
+(defstatechart (test-states-2)
+  (c "G" (d "Z" :entry (act () (format t "hello")))
+    (s "Z" :entry (act ()))
+    (o "X" ()
+      (c "A" (d "1") 
+	(s "1")
+	(s "2")
+	(-> "A to-2" "1" "2")
+	(-> "A to-1" "2" "1")
+	(-> "switch" "1" "2")
+	(-> "switch" "2" "1"))
+      (c "B" (d "1")
+	(s "1")
+	(s "2")
+	(-> "switch" "1" "2")
+	(-> "switch" "2" "1")
+	(-> "B to-2" "1" "2")
+	(-> "B to-1" "2" "1")))
+    (-> "init" "Z" "X")))
+
+(create-fsm-runtime test-states-2)
 
 

@@ -40,5 +40,7 @@
    #:get-states-described-by-name
    #:render-to-uml
    #:render
-   #:fsm))
+   #:fsm
+   #:couldnt-intersect-state-names
+   #:join-intersect-state-names))
 

@@ -69,14 +69,14 @@
   (iter
     (for el in elements)
     (when (typep el 'transition)
-      (collect
-	  (make-instance 'tr
-			 :event-name (event-symbol el)
-			 :guard (guards el)
-			 :initial-state-name
-			 (make-state-name (initial-state el) chart-element super-state)
-			 :final-state-name
-			 (make-state-name (final-state el) chart-element super-state))))))
+      (for tr = (make-instance 'tr
+			       :event-name (event-symbol el)
+			       :guard (guards el)
+			       :initial-state-name
+			       (make-state-name (initial-state el) chart-element super-state)
+			       :final-state-name
+			       (make-state-name (final-state el) chart-element super-state)))
+      (collect tr))))
 
 
 (defmethod compute-transitions ((s cluster) super-state chart-element)
@@ -164,60 +164,58 @@
 	     :key #'first)))
 
 
-
-(defun described-by-final-keys? (states state-names)
-  (iter
-    (for sn in state-names)
-    (for ss initially states
-	 then (remove-if-not #'(lambda (s)
-				 (state-described-by-name s sn))
-			     ss))
-    (until (not ss))
-    (finally (return ss))))
-
-
-
-
-
-(defun get-final-state (states transitions)
-  (let+ ((len (length transitions))
-	 ((&values name final-state)
-	  (case len
-	    (0 (error "This shouldn't happen."))
-	    (1 (let ((name (final-state-name (first transitions))))
-		 (values name (get-partial-default-state states name))))
-	    (t (let ((name (reduce #'join-state-names
-				   (mapcar #'final-state-name transitions))))
-		 (values name (get-partial-default-state states name)))))))
-    (if final-state
-	final-state
-	(error 'invalid-state-descriptor :descriptor name))))
+(defun determine-final-states (all-states initial-state transitions)
+  (let+ (((&values trans-init-state-name trans-final-state-name)
+	  (cond ((not transitions)
+		 (error "No transitions given found for initial state: ~a ?" initial-state))
+		((= (length transitions) 1)
+		 (values (initial-state-name (first transitions))
+			 (final-state-name (first transitions))))
+		(t
+		 (values (reduce #'join-state-names (mapcar #'initial-state-name transitions))
+			 (reduce #'join-state-names (mapcar #'final-state-name transitions))))))
+	 (full-initial-state-name (create-state-name initial-state))
+	 (diff-full-initial (difference-state-names full-initial-state-name trans-init-state-name))
+	 (states-for-final-state-name (get-states-described-by-name all-states trans-final-state-name))
+	 (final-states (if diff-full-initial
+			   (get-states-described-by-name states-for-final-state-name diff-full-initial)
+			   states-for-final-state-name)))
+    (if (> (length final-states) 1)
+	(get-partial-default-state final-states trans-final-state-name)
+	(first final-states))))
 
 
 
-(defun set-transitions-for-fsm-states (states fsm-states transitions)
-  (labels ((find-events/transition-originating-from-state (s)
+
+
+
+
+
+(defun set-transitions-for-fsm-states (all-states all-fsm-states all-transitions)
+  (labels ((find-events/transition-originating-from-state (state)
 	     (group-by:group-by (remove-if-not
 				 #'(lambda (tr)
-				     (state-described-by-name s (initial-state-name tr)))
-				 transitions)
+				     (state-described-by-name state (initial-state-name tr)))
+				 all-transitions)
 				:key #'event-name :value #'identity))
-	   (find-fsm-state (s)
-	     (find (create-state-name s) fsm-states
-		   :key #'name :test #'state-name=)))
-    (iter outer
-      (for s in states)
-      (for fsm-state = (find-fsm-state s))
-      (if (not fsm-state)
-	  (error "Huh ? couldn't find fsm state for state: ~a" s))
-      ;; for every state s
+	   (find-fsm-state-for (state)
+	     (alexandria:if-let (ret (find (create-state-name state) all-fsm-states
+					   :key #'name :test #'state-name=))
+	       ret (error "Huh ? couldn't find fsm state for state: ~a" state))))
+    (iter 
+      (for initial-state in all-states)
       (iter
-	;; for every event-name and transitions originating in s
-	(for ev.transitions
-	     in (find-events/transition-originating-from-state s))
-	(for ev = (car ev.transitions))
-	(for trans = (cdr ev.transitions))
-	(for final-state = (get-final-state states trans))
-	(when trans
-	  (set-transition fsm-state s ev final-state
-			  (find-fsm-state final-state)))))))
+	;; for every EVENT-NAME and TRANSITIONS* originating in INITIAL-STATE
+	(for (event-name . transitions) in (find-events/transition-originating-from-state initial-state))
+	(when transitions
+	  ;; find FINAL-STATE when applying TRANSITIONS* to INITIAL-STATE
+	  (for final-state = (determine-final-states all-states initial-state transitions))
+	  (set-transition (find-fsm-state-for initial-state)
+			  initial-state event-name
+			  final-state
+			  (find-fsm-state-for final-state)))))))
+
+
+
+
+

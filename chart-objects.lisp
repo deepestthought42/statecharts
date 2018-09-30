@@ -71,7 +71,7 @@
   (print-unreadable-object (obj stream)
     (print-state-name (initial-state-name obj) stream)
     (format stream " --|~a|--> " (event-name obj))
-    (print-state-name (initial-state-name obj) stream)))
+    (print-state-name (final-state-name obj) stream)))
 
 
 (defmethod print-object ((obj s) stream)
@@ -81,7 +81,7 @@
 (defmethod print-s ((obj s) stream)
   (format stream "(~a)" (name obj)))
 
-(defmethod print-s ((obj s-xor) stream)
+n(defmethod print-s ((obj s-xor) stream)
   (format stream "(~a " (name obj))
   (print-s (sub-state obj) stream)
   (format stream ")"))
@@ -220,22 +220,22 @@
 
 
 (defmethod difference ((a s-and) (b s-and))
-  (cond
-    ((= (id (defining-state a))
-	(id (defining-state b)))
-     (if (not (= (length (sub-states a))
-		 (length (sub-states b))))
-	 (error "This shouldn't be possible."))
-     (iter
-       (for sub-a in (sub-states a))
-       (for sub-b in (sub-states b))
-       (for (values in-a in-b) = (difference sub-a sub-b))
-       (appending in-a into in-a-but-not-b)
-       (appending in-b into in-b-but-not-a)
-       (finally
-	(return
-	  (values in-a-but-not-b in-b-but-not-a)))))
-    (t (list a) (list b))))
+  (labels ((d-id (s) (id (defining-state s))))
+    (cond
+      ((= (d-id a) (d-id b))
+       (if (not (= (length (sub-states a))
+		   (length (sub-states b))))
+	   (error "This shouldn't be possible."))
+       (iter
+	 (for sub-a in (sort (sub-states a) #'< :key #'d-id))
+	 (for sub-b in (sort (sub-states b) #'< :key #'d-id))
+	 (for (values in-a in-b) = (difference sub-a sub-b))
+	 (appending in-a into in-a-but-not-b)
+	 (appending in-b into in-b-but-not-a)
+	 (finally
+	  (return
+	    (values in-a-but-not-b in-b-but-not-a)))))
+      (t (list a) (list b)))))
 
 
 

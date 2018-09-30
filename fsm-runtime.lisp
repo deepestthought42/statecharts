@@ -79,7 +79,7 @@
 	 ((&slots event-queue processing) fsm))
     (queues:qpush event-queue new-event)
     (unless processing
-      (handler-case
+      (unwind-protect 
 	  (progn
 	    (setf processing t)
 	    (iter
@@ -87,7 +87,7 @@
 		   = (queues:qpop event-queue))
 	      (while event-returned)
 	      (%signal-event fsm event environment)))
-	(t () (setf processing nil))))))
+	(setf processing nil)))))
 
 
 

@@ -131,6 +131,7 @@ with the ENVIRONMENT as their parameter.
 
 (defmacro act ((&optional (environment-symbol 'env)) &body code)
   `(make-instance 'sc:action
+		  :code ',code
 		  :fun #'(lambda (,environment-symbol)
 			   (declare (ignorable ,environment-symbol))
 			   ,@code)))
