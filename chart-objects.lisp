@@ -81,7 +81,7 @@
 (defmethod print-s ((obj s) stream)
   (format stream "(~a)" (name obj)))
 
-n(defmethod print-s ((obj s-xor) stream)
+(defmethod print-s ((obj s-xor) stream)
   (format stream "(~a " (name obj))
   (print-s (sub-state obj) stream)
   (format stream ")"))
