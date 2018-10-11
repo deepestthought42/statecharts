@@ -72,11 +72,11 @@
 	     (execute-actions on-entry-actions :actions)))))))
 
 
-(defgeneric signal-event (environment event))
+(defgeneric signal-event (environment event &key))
 
-(defmethod signal-event ((environment environment) new-event)
-  (let+ (((&slots fsm) environment)
-	 ((&slots event-queue processing) fsm))
+(defmethod signal-event ((environment environment) new-event
+			 &key (fsm (fsm environment)))
+  (let+ (((&slots event-queue processing) fsm))
     (queues:qpush event-queue new-event)
     (unless processing
       (unwind-protect 
