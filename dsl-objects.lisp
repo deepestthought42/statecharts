@@ -115,10 +115,17 @@
   (print-unreadable-object (obj stream)
     (format stream "o: ~a" (name obj))))
 
+
+(defun default-error-handler (fun environment)
+  (with-simple-restart (ignore "Ignore error")
+    (funcall fun environment)))
+
 (defclass environment ()
-  ((fsm :initarg :fsm :reader fsm))
+  ((fsm :initarg :fsm :reader fsm)
+   (error-handler :accessor error-handler :initarg :error-handler))
   (:default-initargs
-   :fsm (error "Must initialize fsm.")))
+   :fsm (error "Must initialize fsm.")
+   :error-handler #'default-error-handler))
 
 (defgeneric create-environment (environment))
 

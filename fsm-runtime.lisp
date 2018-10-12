@@ -36,7 +36,8 @@
 	       (declare (ignore category))
 	       (iter
 		 (for act in actions)
-		 (funcall (fun act) environment))))
+		 (funcall (error-handler environment)
+			  (fun act) environment))))
       (cond
 	((not ev.target)
 	 (return-from %signal-event nil))
@@ -57,7 +58,9 @@
 	       (iter
 		 (for act in actions)
 		 (dbgout category "Executing: ~a" (documentation (fun act) 'function))
-		 (funcall (fun act) environment))))
+
+		 (funcall (error-handler environment)
+			  (fun act) environment))))
       (dbgout :signal-event "Received event: ~a" event)
       (cond
 	((not ev.target)
