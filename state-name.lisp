@@ -112,7 +112,8 @@
   (make-instance 'or-state-name
 		 :name (name sn)
 		 :sub-state
-		 (copy-state-name (sub-state sn))))
+		 (if (sub-state sn)
+		     (copy-state-name (sub-state sn)))))
 
 (defmethod copy-state-name ((sn and-state-name))
   (make-instance 'and-state-name
