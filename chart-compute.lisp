@@ -216,7 +216,10 @@
       ((not final-states) (error "Couldn't find final state ?"))
       ;; final states not completely specified, need to select default state
       ((> (length final-states) 1)
-       (get-partial-default-state final-states trans-final-state-name))
+       (let ((final-from-partial (get-partial-default-state final-states trans-final-state-name)))
+	 (unless final-from-partial
+	   (error "Couldn't determine default states for final states."))
+	 final-from-partial))
       ;; final state completely specified
       (t (first final-states)))))
 

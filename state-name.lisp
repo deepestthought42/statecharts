@@ -161,19 +161,21 @@
     (t (throw-couldnt-join-state-names a b "States do no not match."))))
 
 (defmethod join-state-names ((a and-state-name) (b and-state-name))
-  (labels ((app-sns ()
-	     (let+ ((unionized (union (sub-states a) (sub-states b) :test #'state-name=))
-		    (no-duplicates (remove-duplicates unionized :key #'name :test #'string=)))
-	       (if (not (= (length unionized)
-			   (length no-duplicates)))
-		   (throw-couldnt-join-state-names a b "Duplicate sub states")
-		   (mapcar #'copy-state-name no-duplicates)))))
+  (labels ((app-sns () 
+	     (let+ ((subs-a (sub-states a))
+		    (subs-b (sub-states b))
+		    (unionized (union subs-a subs-b :key #'name :test #'string=)))
+	       (iter
+		 (for sn in unionized)
+		 (for sa = (find (name sn) subs-a :key #'name :test #'string=))
+		 (for sb = (find (name sn) subs-b :key #'name :test #'string=))
+		 (cond
+		   ((and sa sb) (collect (join-state-names sa sb)))
+		   (sa (collect sa))
+		   (sb (collect sb)))))))
     (cond
       ((string= (name a) (name b))
-       (make-instance 'and-state-name
-		      :name (name a)
-		      :sub-states
-		      (app-sns)))
+       (make-instance 'and-state-name :name (name a) :sub-states (app-sns)))
       (t (throw-couldnt-join-state-names a b "States do no not match.")))))
 
 
