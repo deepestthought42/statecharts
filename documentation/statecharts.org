@@ -30,6 +30,7 @@ Specifically: How to manage the order of broadcasts.
 let's go through this by the different kinds of states --> actually, this should be a
 problem when having flattened the graph
 
+** TODO event triggers a transition from every state
 * Definitions 
 ** System
 A regularly interacting or interdependent group of items forming a unified whole [fn:1].
