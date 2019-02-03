@@ -12,7 +12,8 @@
 		#:trivia
 		#:trivia.quasiquote
 		#:parachute
-		#:queues.simple-queue)
+		#:queues.simple-queue
+		#:fare-quasiquote-extras)
   :serial t
   :components ((:file "package")
 	       (:file "api")

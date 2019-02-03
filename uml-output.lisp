@@ -64,6 +64,7 @@
   (with-open-file (stream filename
 			  :direction :output :if-exists if-exists)
     (format stream "@startuml~%")
+    (format stream "skinparam classFontSize 9~%skinparam classFontName PragmataPro~%")
     (format stream "hide empty description~%")
     (nodes root stream)
     (iter

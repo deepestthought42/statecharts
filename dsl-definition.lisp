@@ -167,21 +167,29 @@ with the ENVIRONMENT as their parameter.
 
 
 
+;; (named-readtables:in-readtable :fare-quasiquote)
+
+;; (match (list 1 2 3 45)
+;;   (`(,b ,c ,@rest)
+;;     (assert (= 1 b))
+;;     (assert (= 2 c))
+;;     rest))
 
 
 
 
-
-;; (in-readtable :fare-quasiquote)
-
-
-
-;; (defun parse (list)
-;;   (match ))
+;; (defun parse (list-of-elements)
+;;   (iter
+;;     (for el in list-of-elements)))
 
 
 
 ;; (defun dsl (&rest statechart-description)
 ;;   "Parse statecharts DSL ")
+                                                              
 
 
+
+;; (defparameter /sc-test/
+;;   '(:c :d test
+;;     :))
