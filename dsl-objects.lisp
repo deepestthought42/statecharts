@@ -69,6 +69,9 @@
   ((on-entry :initarg :on-entry
 	     :accessor on-entry 
 	     :initform '())
+   (on-reentry :initarg :on-reentry
+	       :accessor on-reentry 
+	       :initform '())
    (on-exit :initarg :on-exit
 	    :accessor on-exit 
 	    :initform '())

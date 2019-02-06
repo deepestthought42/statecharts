@@ -19,9 +19,10 @@
 		   :guards (if if if (constantly t)))))
 
 
-(defun %s (name description entry exit)
+(defun %s (name description entry exit reentry)
   (make-instance 'state :name name :description description
 			:on-entry entry
+			:on-reentry reentry
 			:on-exit exit))
 
 
@@ -42,7 +43,7 @@
 ;;;; helper macros
 
 
-(defmacro %superstate (type name state-selector default-state description entry exit sub-states)
+(defmacro %superstate (type name state-selector default-state description entry exit reentry sub-states)
   (case type
     (cluster
      `(let ((sub-states (list ,@sub-states)))
@@ -53,12 +54,14 @@
 	(make-instance 'cluster :name ,name :description ,description
 				:on-entry ,entry
 				:on-exit ,exit
+				:on-reentry ,reentry
 				:selector-type ',state-selector
 				:default-state ,default-state
 				:elements sub-states)))
     (orthogonal
      `(make-instance 'orthogonal :name ,name :description ,description
 				 :on-entry ,entry
+				 :on-reentry ,reentry
 				 :on-exit ,exit
 				 :elements (list ,@sub-states)))))
 
@@ -75,7 +78,7 @@ proceed if IF returns true.
   `(statecharts::%t ,initial ,event ,final ,when-in-state))
 
 
-(defmacro o (name (&key (description "") entry exit)
+(defmacro o (name (&key (description "") entry exit reentry)
 	     &body sub-states)
   "Returns an object of type ORTHOGONAL (with its sub-states being
 active at the same time, i.e. a logical conjunction of the sub-states:
@@ -91,9 +94,10 @@ their parameter.
 
 => ORTHOGONAL"
   `(%superstate orthogonal ,name nil nil
-		,description ,entry ,exit ,sub-states))
+		,description ,entry ,exit ,reentry ,sub-states))
 
-(defmacro c (name (state-selector default-state &key (description "") entry exit)
+(defmacro c (name (state-selector default-state &key (description "")
+						     entry exit reentry)
 	     &body sub-states)
   "Returns an object of type CLUSTER (with only one sub-state being
 active at all times, i.e. a logical conjunction of the sub-states:
@@ -110,10 +114,10 @@ their parameter.
 
 => CLUSTER"
   `(%superstate cluster ,name ,state-selector ,default-state
-     ,description ,entry ,exit ,sub-states))
+     ,description ,entry ,exit ,reentry ,sub-states))
 
 
-(defmacro s (name &key (description "") entry exit)
+(defmacro s (name &key (description "") entry exit reentry)
   "Returns an object of type STATE with the name NAME. DESCRIPTION is
 an optional explanation for the orthogonal cluster. If given the
 function ENTRY will be called upon a state-change into the state NAME
@@ -122,7 +126,7 @@ NAME. EXIT and ENTRY a functions of one variable and will be called
 with the ENVIRONMENT as their parameter.
 
 => STATE"
-  `(statecharts::%s ,name ,description ,entry ,exit))
+  `(statecharts::%s ,name ,description ,entry ,exit ,reentry))
 
 
 (defmacro :or (&rest guards))

@@ -42,5 +42,6 @@
    #:render
    #:fsm
    #:couldnt-intersect-state-names
-   #:join-intersect-state-names))
+   #:join-intersect-state-names
+   #:on-reentry))
 

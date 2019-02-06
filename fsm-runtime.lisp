@@ -41,11 +41,12 @@
       (cond
 	((not ev.target)
 	 (return-from %signal-event nil))
-	(t (let+ (((&slots fsm-state on-exit-actions on-entry-actions)
+	(t (let+ (((&slots fsm-state on-exit-actions on-entry-actions on-reentry-actions)
 		   (cdr ev.target)))
 	     (execute-actions on-exit-actions :actions)
 	     (setf current-state fsm-state)
-	     (execute-actions on-entry-actions :actions)))))))
+	     (execute-actions on-entry-actions :actions)
+	     (execute-actions on-reentry-actions :actions)))))))
 
 (defmethod %signal-event ((runtime debug-statecharts-runtime-fsm) event environment)
   (let+ (((&slots current-state debug-fn) runtime)
@@ -66,13 +67,14 @@
 	((not ev.target)
 	 (dbgout :signal-event "Not reacting on event: ~a in state: ~a" event (name current-state))
 	 (return-from %signal-event nil))
-	(t (let+ (((&slots fsm-state on-exit-actions on-entry-actions)
+	(t (let+ (((&slots fsm-state on-exit-actions on-entry-actions on-reentry-actions)
 		   (cdr ev.target)))
 	     (dbgout :signal-event "Leaving state: ~a" (name current-state))
 	     (execute-actions on-exit-actions :actions)
 	     (setf current-state fsm-state)
 	     (dbgout :signal-event "Entered state: ~a" (name current-state))
-	     (execute-actions on-entry-actions :actions)))))))
+	     (execute-actions on-entry-actions :actions)
+	     (execute-actions on-reentry-actions :actions)))))))
 
 
 (defgeneric signal-event (environment event &key))

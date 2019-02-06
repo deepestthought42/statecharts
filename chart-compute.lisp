@@ -11,6 +11,7 @@
   (list (make-instance 's :name (name s)
 			  :defining-state s
 			  :on-entry (on-entry s)
+			  :on-reentry (on-reentry s)
 			  :on-exit (on-exit s))))
 
 (defmethod compute-substates ((cluster cluster))
@@ -24,6 +25,7 @@
 	    (collect (make-instance 's-xor :name name :sub-state s
 					   :defining-state cluster
 					   :on-entry (on-entry cluster)
+					   :on-reentry (on-reentry cluster)
 					   :on-exit (on-exit cluster)
 					   :default-state default-state)))))))
 
@@ -39,6 +41,7 @@
 			      (make-instance 's-and :sub-states (list s)
 						    :defining-state ortho
 						    :on-entry (on-entry ortho)
+						    :on-reentry (on-reentry ortho)
 						    :on-exit (on-exit ortho)
 						    :name name))
 			  (car super-lst)))
@@ -52,6 +55,7 @@
 				   (make-instance 's-and :name name
 							 :defining-state ortho
 							 :on-entry (on-entry ortho)
+							 :on-reentry (on-reentry ortho)
 							 :on-exit (on-exit ortho)
 							 :sub-states
 							 (append (list s-1)
@@ -134,14 +138,15 @@
 
   + returns :: on-exit*, on-entry*"
   (labels ((acc (states accessor)
-	     (alexandria:mappend
-	      #'(lambda (s)
-		  (remove-if #'not (recursive-accumulation s accessor)))
-	      states)))
+	     (alexandria:mappend #'(lambda (s) (remove-if #'not (recursive-accumulation s accessor)))
+				 states)))
     (let+ (((&values in-initial-but-not-final
 		     in-final-but-not-initial)
-	    (difference initial final)))
-      (values (acc in-initial-but-not-final #'on-exit) (acc in-final-but-not-initial #'on-entry)))))
+	    (difference initial final))
+	   (is-reentry (eql initial final)))
+      (values (acc in-initial-but-not-final #'on-exit)
+	      (acc in-final-but-not-initial #'on-entry)
+	      (when is-reentry (acc (list initial) #'on-reentry))))))
 
 
 
@@ -149,12 +154,13 @@
 
 (defun set-transition (fsm-state initial-state event-name
 		       final-state final-fsm-state)
-  (let+ (((&values on-exit-actions on-entry-actions)
+  (let+ (((&values on-exit-actions on-entry-actions on-reentry-actions)
 	  (determine-entry/exit-actions initial-state final-state)))
     (pushnew (cons event-name
 		   (make-instance 'tr-target
 				  :on-entry-actions on-entry-actions
 				  :on-exit-actions on-exit-actions
+				  :on-reentry-actions on-reentry-actions
 				  :initial-name (create-state-name initial-state)
 				  :final-name (create-state-name final-state)
 				  :fsm-state final-fsm-state))

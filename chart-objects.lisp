@@ -13,6 +13,7 @@
    (defining-state :initarg :defining-state :accessor defining-state 
 		   :initform nil)
    (on-entry :accessor on-entry :initarg :on-entry :initform '())
+   (on-reentry :accessor on-reentry :initarg :on-reentry :initform '())
    (on-exit :accessor on-exit :initarg :on-exit :initform '())))
 
 (defclass s-xor (s)
@@ -55,6 +56,8 @@
 (defclass tr-target ()
   ((on-entry-actions :initarg :on-entry-actions :accessor on-entry-actions 
 		     :initform (error "Must initialize on-entry-actions."))
+   (on-reentry-actions :initarg :on-reentry-actions :accessor on-reentry-actions 
+		       :initform (error "Must initialize on-reentry-actions."))
    (on-exit-actions :initarg :on-exit-actions :accessor on-exit-actions 
 		    :initform (error "Must initialize on-exit-actions."))
    (initial-name :initarg :initial-name :accessor initial-name 
