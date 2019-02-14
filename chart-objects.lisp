@@ -1,5 +1,5 @@
 (in-package #:statecharts)
-
+#+nil
 (declaim (optimize (debug 3) (speed 0) (space 0)))
 
 
@@ -27,6 +27,38 @@
 	       :initform (error "Must initialize sub-states."))))
 
 
+(defgeneric copy-state (s &key)
+  (:method ((s s) &key (name (name s)) (defining-state (defining-state s))
+		       (on-entry (on-entry s)) (on-reentry (on-reentry s))
+		       (on-exit (on-exit s)))
+    (make-instance 's :name name
+		      :defining-state defining-state
+		      :on-entry on-entry
+		      :on-reentry on-reentry
+		      :on-exit on-exit))
+  (:method ((s s-xor) &key (name (name s)) (defining-state (defining-state s))
+			   (on-entry (on-entry s)) (on-reentry (on-reentry s))
+			   (on-exit (on-exit s)) (sub-state (sub-state s))
+			   (default-state (default-state s)))
+    (make-instance 's-xor :name name
+			  :defining-state defining-state
+			  :on-entry on-entry
+			  :on-reentry on-reentry
+			  :on-exit on-exit
+			  :sub-state sub-state
+			  :default-state default-state))
+  (:method ((s s-and) &key (name (name s)) (defining-state (defining-state s))
+			   (on-entry (on-entry s)) (on-reentry (on-reentry s))
+			   (on-exit (on-exit s)) (sub-states (sub-states s)))
+    (make-instance 's-and :name name
+			  :defining-state defining-state
+			  :on-entry on-entry
+			  :on-reentry on-reentry
+			  :on-exit on-exit
+			  :sub-states sub-states)))
+
+
+
 (defgeneric get-leaf (s)
   (:method ((s s)) s)
   (:method ((s s-xor))
@@ -42,13 +74,16 @@
 
 
 
+
 (defclass tr ()
   ((initial-state-name :initarg :initial-state-name :accessor initial-state-name 
 		       :initform (error "Must initialize initial-state-name."))
    (final-state-name :initarg :final-state-name :accessor final-state-name 
 		     :initform (error "Must initialize final-state-name."))
+   (is-reentry :accessor is-reentry :initarg :is-reentry
+	       :initform (error "Must initialize is-reentry"))
    (event-name :initarg :event-name :accessor event-name 
-	      :initform (error "Must initialize event-state-name."))
+	       :initform (error "Must initialize event-state-name."))
    (guard :initarg :guard :accessor guard 
 	  :initform (error "Must initialize guard."))))
 
@@ -158,6 +193,50 @@
       (t (reduce #'(lambda (a b) (and a b))
 		 (sub-states state-name)
 		 :key #'is-sub-state)))))
+
+
+;; remove substates not explicitly speficied in state-name
+(defgeneric remove-implicit-substates (state state-name)
+  (:documentation "Remove substates from STATE not explicitly speficied in STATE-NAME."))
+
+(defmethod remove-implicit-substates ((s (eql nil)) state-name)
+  (error "Substate(s) given in state-name not found in state."))
+
+(defun check-state-name (state state-name)
+  (when (not (state=state-name state state-name))
+    (error "State: ~a not described by state-name: ~a" state state-name)))
+
+(defmethod remove-implicit-substates ((state s) state-name)
+  (check-state-name state state-name)
+  (copy-state state))
+
+(defmethod remove-implicit-substates ((state s-xor) state-name)
+  (check-state-name state state-name)
+  (cond
+    ;; the name matches but doesn't specify any sub-states -> return technically, this
+    ;; doesn't make any sense but for determining which state is reentered it might be
+    ;; useful
+    ((not (sub-state state-name)) (copy-state state :sub-state nil))
+    ;; the name still matches and specifies sub-states -> test substate
+    (t (copy-state state :sub-state
+		   (remove-implicit-substates (sub-state state) (sub-state state-name))))))
+
+
+(defmethod remove-implicit-substates ((state s-and) state-name)
+  (check-state-name state state-name)
+  (cond
+    ;; the state-name doesn't specify any substates, so return nil
+    ((not (sub-states state-name)) (copy-state state :sub-states nil))
+    ;; name matches and we have substates, so return only
+    ;; the ones given in state-name
+    (t
+     (copy-state state :sub-states
+		 (iter
+		   (for sn in (sub-states state-name))
+		   (for s = (find (name sn) (sub-states state) :test #'string= :key #'name))
+		   (when (not s) (error "Couldn't find substate with name: ~a" sn))
+		   (for explicit = (remove-implicit-substates s sn))
+		   (when explicit (collect explicit)))))))
 
 ;;; create state-name from s
 

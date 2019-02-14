@@ -161,15 +161,36 @@
 
 
 (defstatechart (sc/test)
+  (sc:o "outer" ()
+    (sc:c "test" (sc:d "a")
+      (sc:s "a" :reentry (act (e) (format t "entry~%")))
+      (sc:s "b")
+      (sc:-> "ev" "a" "a")
+      (sc:-> "ev" "b" "a"))
+    (sc:c "fucker upper" (sc:d "a")
+      (sc:s "a")
+      (sc:s "b" :reentry (act (e) (format t "entry fucker~%")))
+      (sc:-> "ev" "a" "b")
+      (sc:-> "ev" "b" "b"))))
+
+(defstatechart (sc/test)
   (sc:c "test" (sc:d "a")
     (sc:s "a" :reentry (act (e) (format t "entry~%")))
     (sc:s "b")
-    (sc:-> "ev" "a" "b")
+    (sc:-> "ev" "a" "a")
     (sc:-> "ev" "b" "a")))
 
 
-(let ((env (make-instance 'environment
-			  :fsm (create-fsm-runtime sc/test :debug t))))
+(let ((env (make-instance 'environment :fsm (create-fsm-runtime sc/test :debug t))))
   (signal-event env '|ev|)
   (signal-event env '|ev|)
   (signal-event env '|ev|))
+
+
+
+
+
+
+
+
+

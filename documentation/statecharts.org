@@ -100,7 +100,7 @@ first thing to come up with, elements of the DSL
     fsm
 * TODOs 
 ** TODO guard against two substates with the same name
-
+** DONE for transitions with reentry, find the correct actions to execute
 * Footnotes
 
 [fn:1] https://www.merriam-webster.com/dictionary/system

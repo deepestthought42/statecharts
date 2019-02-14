@@ -72,13 +72,17 @@
   (iter
     (for el in elements)
     (when (typep el 'transition)
+      (for initial-state-name =
+	   (make-state-name (initial-state el) chart-element super-state))
+      (for final-state-name =
+	   (make-state-name (final-state el) chart-element super-state))
+      (for is-reentry = (state-name= initial-state-name final-state-name))
       (for tr = (make-instance 'tr
 			       :event-name (event-symbol el)
 			       :guard (guards el)
-			       :initial-state-name
-			       (make-state-name (initial-state el) chart-element super-state)
-			       :final-state-name
-			       (make-state-name (final-state el) chart-element super-state)))
+			       :is-reentry is-reentry
+			       :initial-state-name initial-state-name 
+			       :final-state-name final-state-name))
       (collect tr))))
 
 
@@ -142,31 +146,12 @@
 				 states)))
     (let+ (((&values in-initial-but-not-final
 		     in-final-but-not-initial)
-	    (difference initial final))
-	   (is-reentry (eql initial final)))
+	    (difference initial final)))
       (values (acc in-initial-but-not-final #'on-exit)
-	      (acc in-final-but-not-initial #'on-entry)
-	      (when is-reentry (acc (list initial) #'on-reentry))))))
+	      (acc in-final-but-not-initial #'on-entry)))))
 
 
 
-
-
-(defun set-transition (fsm-state initial-state event-name
-		       final-state final-fsm-state)
-  (let+ (((&values on-exit-actions on-entry-actions on-reentry-actions)
-	  (determine-entry/exit-actions initial-state final-state)))
-    (pushnew (cons event-name
-		   (make-instance 'tr-target
-				  :on-entry-actions on-entry-actions
-				  :on-exit-actions on-exit-actions
-				  :on-reentry-actions on-reentry-actions
-				  :initial-name (create-state-name initial-state)
-				  :final-name (create-state-name final-state)
-				  :fsm-state final-fsm-state))
-	     (ev->state fsm-state)
-	     :test #'equal
-	     :key #'first)))
 
 
 (defun determine-final-states (all-states initial-state transitions)
@@ -230,9 +215,42 @@
       (t (first final-states)))))
 
 
+(defun get-reentry-actions (final-state transitions)
+  (let+ ((states-with-reentry-actions
+	  (mapcar #'initial-state-name (remove-if #'not transitions :key #'is-reentry)))
+	 (joined-reentry-state (if states-with-reentry-actions
+				   (reduce #'join-state-names states-with-reentry-actions)
+				   (return-from get-reentry-actions '())))
+	 (explicit-state (remove-implicit-substates final-state joined-reentry-state)))
+    (remove-if #'not (recursive-accumulation explicit-state #'on-reentry))))
 
 
 
+(defun find-fsm-state-for (state all-fsm-states)
+  (alexandria:if-let (ret (find (create-state-name state) all-fsm-states
+				:key #'name :test #'state-name=))
+    ret (error "Huh ? couldn't find fsm state for state: ~a" state)))
+
+
+
+(defun set-transition (initial-state event-name transitions all-fsm-states all-states)
+  (let+ ((initial-fsm-state (find-fsm-state-for initial-state all-fsm-states))
+	 (final-state (determine-final-states all-states initial-state transitions))
+	 (final-fsm-state (find-fsm-state-for final-state all-fsm-states))
+	 ((&values on-exit-actions on-entry-actions) (determine-entry/exit-actions initial-state final-state))
+	 ;; assuming that 
+	 (on-reentry-actions (get-reentry-actions final-state transitions)))
+    (pushnew (cons event-name
+		   (make-instance 'tr-target
+				  :on-entry-actions on-entry-actions
+				  :on-exit-actions on-exit-actions
+				  :on-reentry-actions on-reentry-actions
+				  :initial-name (create-state-name initial-state)
+				  :final-name (create-state-name final-state)
+				  :fsm-state final-fsm-state))
+	     (ev->state initial-fsm-state)
+	     :test #'equal
+	     :key #'first)))
 
 
 
@@ -242,23 +260,15 @@
 				 #'(lambda (tr)
 				     (state-described-by-name state (initial-state-name tr)))
 				 all-transitions)
-				:key #'event-name :value #'identity))
-	   (find-fsm-state-for (state)
-	     (alexandria:if-let (ret (find (create-state-name state) all-fsm-states
-					   :key #'name :test #'state-name=))
-	       ret (error "Huh ? couldn't find fsm state for state: ~a" state))))
+				:key #'event-name :value #'identity)))
     (iter 
       (for initial-state in all-states)
+      ;; for every EVENT-NAME and TRANSITIONS* originating in INITIAL-STATE
+      ;; find and set FINAL-STATE when applying TRANSITIONS* to INITIAL-STATE
       (iter
-	;; for every EVENT-NAME and TRANSITIONS* originating in INITIAL-STATE
 	(for (event-name . transitions) in (find-events/transition-originating-from-state initial-state))
 	(when transitions
-	  ;; find FINAL-STATE when applying TRANSITIONS* to INITIAL-STATE
-	  (for final-state = (determine-final-states all-states initial-state transitions))
-	  (set-transition (find-fsm-state-for initial-state)
-			  initial-state event-name
-			  final-state
-			  (find-fsm-state-for final-state)))))))
+	  (set-transition initial-state event-name transitions all-fsm-states all-states))))))
 
 
 
