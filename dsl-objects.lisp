@@ -1,6 +1,10 @@
 ;;;; statecharts.lisp
 
-(in-package #:statecharts)
+(defpackage #:statecharts.dsl
+  (:use #:cl #:iterate #:let-plus #:trivia)
+  (:nicknames #:dsl))
+
+(in-package #:statecharts.dsl)
 
 ;;; objects the statechart DSL evaluates into
 
@@ -26,36 +30,62 @@
 
 
 
-(defclass statechart (statechart-element)
-  ((root :accessor root :initarg :root :initform nil)
-   (states :accessor states :initarg :states :initform '())
-   (fsm-states :accessor fsm-states :initarg :fsm-states :initform '())
-   (default-state :accessor default-state :initarg :default-state :initform nil)
-   (transitions :accessor transitions :initarg :transitions :initform '())
-   (events :accessor events :initarg :events :initform '())))
-
 (defclass transition (statechart-element)
   ((event :initarg :event :accessor event 
 	  :initform (error "Must initialize event."))
-   (guards :accessor guards :initarg :guards :initform '())
    (initial-state :initarg :initial-state :accessor initial-state 
 		  :initform (error "Must initialize initial-state."))
-   (final-state :initarg :final-state :accessor final-state 
-		:initform (error "Must initialize final-state."))
+   (clauses :accessor clauses :initarg :clauses
+	    :initform (error "Need to initialize CLAUSES."))
    (event-symbol :reader event-symbol)))
+
 
 (defmethod initialize-instance :after ((obj transition) &key)
   (setf (slot-value obj 'event-symbol)
 	(alexandria:symbolicate (event obj))))
 
 
-(defclass conditional ()
-  ((description :initarg :description :accessor description :initform "")))
 
-(defclass in-state (conditional)
-  ((state-name :initarg :state-name :accessor state-name 
-	       :initform (error "Must initialize state-name."))))
+(defun make-transition (initial-name event clauses)
+  (labels ((format-name (name)
+	     (cond
+	       ((stringp name) name)
+	       ((listp name) (format nil "~{~a~^::~}" name))
+	       (t (error "This should happen.")))))
+    (make-instance 'dsl::transition
+		   :name (format nil "~a -> (~{~a~^,~})"
+				 (format-name initial-name)
+				 (mapcar #'(lambda (c) (format-name (final-state c))) clauses))
+		   :event event
+		   :initial-state initial-name
+		   :clauses clauses)))
 
+(defclass transition-clause ()
+  ((final-state :accessor final-state :initarg :final-state
+		:initform (error "Must initialize FINAL-STATE."))))
+
+(defclass otherwise-clause (transition-clause) ())
+
+(defclass guard-clause (transition-clause)
+  ((code :accessor code :initarg :code
+	 :initform (error "Must initialize CODE."))
+   (fun :accessor fun :initarg :fun
+	:initform (error "Need to initialize FUN."))))
+
+
+(sc::define-copy-object-method (transition-clause) final-state)
+(sc::define-copy-object-method (otherwise-clause) final-state)
+(sc::define-copy-object-method (guard-clause) final-state code fun)
+
+(defgeneric context-dependendp (clause)
+  (:method (clause) nil)
+  (:method ((clause guard-clause)) t)
+  (:method ((clause otherwise-clause)) t))
+
+(defgeneric applicable (target environment)
+  (:method ((clause transition-clause) environment) t)
+  (:method ((clause guard-clause) environment)
+    (funcall (fun clause) environment)))
 
 (defclass action ()
   ((fun :accessor fun :initarg :fun :initform (constantly t))
@@ -119,18 +149,6 @@
     (format stream "o: ~a" (name obj))))
 
 
-(defun default-error-handler (fun environment)
-  (with-simple-restart (ignore "Ignore error")
-    (funcall fun environment)))
-
-(defclass environment ()
-  ((fsm :initarg :fsm :reader fsm)
-   (error-handler :accessor error-handler :initarg :error-handler))
-  (:default-initargs
-   :fsm (error "Must initialize fsm.")
-   :error-handler #'default-error-handler))
-
-(defgeneric create-environment (environment))
 
 
 

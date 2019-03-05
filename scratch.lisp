@@ -51,13 +51,13 @@
 	      ("X" "B")))))
 
 
-(join-state-names (make-state-name '("H" "G" ("Z" "C")) (root test-1))
-		  (make-state-name '("H" "G" ("Z" "A")) (root test-1)))
+(join-state-names (name::from-description '("H" "G" ("Z" "C")) (root test-1))
+		  (name::from-description '("H" "G" ("Z" "A")) (root test-1)))
 
 
 
-(state-name= (make-state-name '("H" "G" ("Z" "C")) (root test-1))
-	     (make-state-name '("H" "G" ("Z" "C")) (root test-1)))
+(name::state= (name::from-description '("H" "G" ("Z" "C")) (root test-1))
+	     (name::from-description '("H" "G" ("Z" "C")) (root test-1)))
 
 
 
@@ -71,7 +71,7 @@
 					       (states test-1)))))
 
 
-(let ((name (make-state-name '("H" "G" ("X" "A") ("Y" "B")) (root test-1))))
+(let ((name (name::from-description '("H" "G" ("X" "A") ("Y" "B")) (root test-1))))
   (get-partial-default-state (states test-1) name))
 
 
@@ -104,7 +104,7 @@
 
 
 
-(create-fsm-states (states test-states))
+(fsm::create-states (states test-states))
 
 
 
@@ -151,8 +151,8 @@
 
 (create-fsm-runtime test-states-2)
 
-(difference-state-names (make-state-name '("G" "Z" "A") (root test-states))
-			(make-state-name '("G" "Z" "B") (root test-states)))
+(difference-state-names (name::from-description '("G" "Z" "A") (root test-states))
+			(name::from-description '("G" "Z" "B") (root test-states)))
 
 
 
@@ -163,28 +163,54 @@
 (defstatechart (sc/test)
   (sc:o "outer" ()
     (sc:c "test" (sc:d "a")
-      (sc:s "a" :reentry (act (e) (format t "entry~%")))
+      (sc:s "a" :reentry (act (e) (format t "reentry~%")))
       (sc:s "b")
       (sc:-> "ev" "a" "a")
       (sc:-> "ev" "b" "a"))
     (sc:c "fucker upper" (sc:d "a")
       (sc:s "a")
-      (sc:s "b" :reentry (act (e) (format t "entry fucker~%")))
+      (sc:s "b" :reentry (act (e) (format t "reentry fucker~%")))
       (sc:-> "ev" "a" "b")
       (sc:-> "ev" "b" "b"))))
 
+(defclass test-env (environment)
+  ((counter :accessor counter :initarg :counter
+	    :initform 0)))
+
 (defstatechart (sc/test)
   (sc:c "test" (sc:d "a")
-    (sc:s "a" :reentry (act (e) (format t "entry~%")))
+    (sc:s "a" :reentry (act (e)
+			 (format t "reentry~%")
+			 (incf (counter e)))
+	      :exit (act (e) (setf (counter e) 0)))
     (sc:s "b")
-    (sc:-> "ev" "a" "a")
+    (sc:-> "ev" "a" (cond (e)
+			  ((> (counter e) 2) "b")
+			  (otherwise "a")))
     (sc:-> "ev" "b" "a")))
+
+
+
+
+
+
+
+
+
+
+
 
 
 (let ((env (make-instance 'environment :fsm (create-fsm-runtime sc/test :debug t))))
   (signal-event env '|ev|)
   (signal-event env '|ev|)
   (signal-event env '|ev|))
+
+
+
+
+
+
 
 
 

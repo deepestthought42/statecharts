@@ -1,4 +1,4 @@
-(in-package #:statecharts)
+(in-package #:statecharts.chart)
 
 
 ;;; parse statecharts
@@ -7,43 +7,43 @@
 
 (defmethod compute-substates ((s t)) '())
 
-(defmethod compute-substates ((s state))
-  (list (make-instance 's :name (name s)
+(defmethod compute-substates ((s dsl::state))
+  (list (make-instance 's :name (dsl::name s)
 			  :defining-state s
-			  :on-entry (on-entry s)
-			  :on-reentry (on-reentry s)
-			  :on-exit (on-exit s))))
+			  :on-entry (dsl::on-entry s)
+			  :on-reentry (dsl::on-reentry s)
+			  :on-exit (dsl::on-exit s))))
 
-(defmethod compute-substates ((cluster cluster))
-  (let+ (((&slots name elements transitions default-state) cluster))
+(defmethod compute-substates ((cluster dsl::cluster))
+  (let+ (((&slots dsl::name dsl::elements dsl::default-state) cluster))
     (iter outer
-      (for e in elements)
+      (for e in dsl::elements)
       (for sub-states = (compute-substates e))
       (iter
 	(for s in sub-states)
 	(in outer
-	    (collect (make-instance 's-xor :name name :sub-state s
+	    (collect (make-instance 's-xor :name dsl::name :sub-state s
 					   :defining-state cluster
-					   :on-entry (on-entry cluster)
+					   :on-entry (dsl::on-entry cluster)
 					   :on-reentry (on-reentry cluster)
-					   :on-exit (on-exit cluster)
-					   :default-state default-state)))))))
+					   :on-exit (dsl::on-exit cluster)
+					   :default-state dsl::default-state)))))))
 
-(defmethod compute-substates ((ortho orthogonal))
-  (let+ (((&slots name elements) ortho)
+(defmethod compute-substates ((ortho dsl::orthogonal))
+  (let+ (((&slots dsl::name dsl::elements) ortho)
 	 (lst-of-lst-of-substates
 	  (remove-if #'not
-		     (mapcar #'(lambda (s) (compute-substates s)) elements))))
+		     (mapcar #'(lambda (s) (compute-substates s)) dsl::elements))))
     (labels ((combine-elements (super-lst) 
 	       (cond
 		 ((not (cdr super-lst))
 		  (mapcar #'(lambda (s)
 			      (make-instance 's-and :sub-states (list s)
 						    :defining-state ortho
-						    :on-entry (on-entry ortho)
-						    :on-reentry (on-reentry ortho)
-						    :on-exit (on-exit ortho)
-						    :name name))
+						    :on-entry (dsl::on-entry ortho)
+						    :on-reentry (dsl::on-reentry ortho)
+						    :on-exit (dsl::on-exit ortho)
+						    :name dsl::name))
 			  (car super-lst)))
 		 (t
 		  (let ((states-1 (car super-lst))
@@ -52,11 +52,11 @@
 		      (for s-1 in states-1)
 		      (appending
 		       (mapcar #'(lambda (s-n)
-				   (make-instance 's-and :name name
+				   (make-instance 's-and :name dsl::name
 							 :defining-state ortho
-							 :on-entry (on-entry ortho)
-							 :on-reentry (on-reentry ortho)
-							 :on-exit (on-exit ortho)
+							 :on-entry (dsl::on-entry ortho)
+							 :on-reentry (dsl::on-reentry ortho)
+							 :on-exit (dsl::on-exit ortho)
 							 :sub-states
 							 (append (list s-1)
 								 (sub-states s-n))))
@@ -66,45 +66,49 @@
 
 ;;; transitions
 
-(defmethod compute-transitions ((s t) super-state chart-element) '())
+
+(defmethod compute-transitions ((s t) super-state  dsl-element) '())
+
+
+(defun %make-clause (clause chart-element super-state)
+  (let+ ((fs-description (dsl::final-state clause))
+	 (fs (name::from-description fs-description chart-element super-state)))
+    (sc::copy-object clause :final-state fs)))
+
 
 (defun %make-transitions (elements super-state chart-element)
-  (iter
+  (iter outer
     (for el in elements)
-    (when (typep el 'transition)
-      (for initial-state-name =
-	   (make-state-name (initial-state el) chart-element super-state))
-      (for final-state-name =
-	   (make-state-name (final-state el) chart-element super-state))
-      (for is-reentry = (state-name= initial-state-name final-state-name))
-      (for tr = (make-instance 'tr
-			       :event-name (event-symbol el)
-			       :guard (guards el)
-			       :is-reentry is-reentry
-			       :initial-state-name initial-state-name 
-			       :final-state-name final-state-name))
-      (collect tr))))
+    (when (typep el 'dsl::transition)
+      (for initial-state-name
+	   = (name::from-description (dsl::initial-state el) chart-element super-state))
+      (for clauses
+	   = (mapcar #'(lambda (c) (%make-clause c chart-element super-state)) (dsl::clauses el)))
+      (make-instance 'chart::transition :event-name (dsl::event-symbol el)
+					:initial-state-name initial-state-name
+					:transition-group-id (dsl::id el)
+					:clauses clauses))))
 
 
-(defmethod compute-transitions ((s cluster) super-state chart-element)
-  (let+ (((&slots name elements) s)
-	 (super-state (append super-state (list name)))
+(defmethod compute-transitions ((s dsl::cluster) super-state  dsl-element)
+  (let+ (((&slots dsl::name dsl::elements) s)
+	 (super-state (append super-state (list dsl::name)))
 	 (transitions-for-sub-states
 	  (iter
-	    (for el in elements)
-	    (appending (compute-transitions el super-state chart-element)))))
+	    (for el in dsl::elements)
+	    (appending (compute-transitions el super-state  dsl-element)))))
     (append transitions-for-sub-states
-	    (%make-transitions elements super-state chart-element))))
+	    (%make-transitions dsl::elements super-state  dsl-element))))
 
-(defmethod compute-transitions ((s orthogonal) super-state chart-element)
-  (let+ (((&slots name elements) s)
-	 (super-state (append super-state (list name)))
+(defmethod compute-transitions ((s dsl::orthogonal) super-state  dsl-element)
+  (let+ (((&slots dsl::name dsl::elements) s)
+	 (super-state (append super-state (list dsl::name)))
 	 (transitions-for-sub-states
 	  (iter
-	    (for el in elements)
-	    (appending (compute-transitions el super-state chart-element)))))
+	    (for el in dsl::elements)
+	    (appending (compute-transitions el super-state  dsl-element)))))
     (append transitions-for-sub-states
-	    (%make-transitions elements super-state chart-element))))
+	    (%make-transitions dsl::elements super-state  dsl-element))))
 
 
 ;;; accumulate events
@@ -117,160 +121,4 @@
 		     (setf (gethash (event-name tr) table) (list tr))))
 	 transitions)
     table))
-
-
-(defun enclose-in-list-if-nec (ob)
-  (if (listp ob) ob (list ob)))
-
-(defgeneric recursive-accumulation (s accessor)
-  (:method ((s s) accessor)
-    (enclose-in-list-if-nec (funcall accessor s)))
-  (:method ((s s-xor) accessor)
-    (append (enclose-in-list-if-nec (funcall accessor s))
-	    (recursive-accumulation (sub-state s) accessor)))
-  (:method ((s s-and) accessor)
-    (append (enclose-in-list-if-nec (funcall accessor s))
-	    (alexandria:mappend #'(lambda (s) (recursive-accumulation s accessor)) (sub-states s)))))
-
-
-
-(defun determine-entry/exit-actions (initial final)
-  "Given initial and final state of a transition (in INITIAL and FINAL), determines the
-  difference in states (i.e. the states exited and entered) between the initial and final
-  state. Collects all /on-exit/ actions for all sub-states of INITIAL that are not in FINAL
-  and all /on-entry/ actions for the sub-states that are not in INITIAL but in FINAL:
-
-  + returns :: on-exit*, on-entry*"
-  (labels ((acc (states accessor)
-	     (alexandria:mappend #'(lambda (s) (remove-if #'not (recursive-accumulation s accessor)))
-				 states)))
-    (let+ (((&values in-initial-but-not-final
-		     in-final-but-not-initial)
-	    (difference initial final)))
-      (values (acc in-initial-but-not-final #'on-exit)
-	      (acc in-final-but-not-initial #'on-entry)))))
-
-
-
-
-
-(defun determine-final-states (all-states initial-state transitions)
-  ;;; probably not the most effective, but it seems to work. there is also a lot of
-  ;;; consing going on here, so if we find that we have a performance problem upon
-  ;;; creating a sc, start here.
-  (let+ (((&values trans-init-state-name trans-final-state-name)
-	  ;; join the transitions names if more than one transition exists; if we have
-	  ;; transitions that are incompatible, it should be noticed when joining the
-	  ;; names
-	  (cond ((not transitions)
-		 (error "No transitions given found for initial state: ~a ?" initial-state))
-		((= (length transitions) 1)
-		 (values (initial-state-name (first transitions))
-			 (final-state-name (first transitions))))
-		(t
-		 (values (reduce #'join-state-names (mapcar #'initial-state-name transitions))
-			 (reduce #'join-state-names (mapcar #'final-state-name transitions))))))
-	 ;; try finding states that are described by TRANS-FINAL-STATE-NAME
-	 (possible-final-state-names
-	  (alexandria:if-let (tfsn (get-states-described-by-name all-states trans-final-state-name))
-	    tfsn (error "Couldn't find states described by final-state: ~a of transition: ~a"
-			trans-final-state-name trans-final-state-name)))
-	 ;; since we work on state-names, create one for INITIAL-STATE
-	 (full-initial-state-name (create-state-name initial-state))
-	 ;; calculate the states that are defined in the current state (as given by
-	 ;; FULL-INITIAL-STATE-NAME) but are not described by the initial-state of
-	 ;; TRANSITIONS
-	 (in-current-state-but-not-trans (difference-state-names full-initial-state-name
-								 trans-init-state-name))
-	 ;; select FINAL-STATES from possible states such that orthogonal states not
-	 ;; affected by TRANSITIONS stay the same 
-	 (final-states
-	  (cond
-	    ;; FULL-INITIAL-STATE-NAME might be a more specific or state, so it will be
-	    ;; return, e.g: ("A" ("Z" "X")), ("A" "Y") => ("A" ("Z" "X"))
-	    ;;
-	    ;; if that is the case, all states described by the final-state-name from
-	    ;; TRANSITIONS are possible
-	    ((and in-current-state-but-not-trans (state-name= in-current-state-but-not-trans
-							      full-initial-state-name))
-	     possible-final-state-names)
-	    ;; when we have orthogonal states not described by TRANSITIONS, e.g.:
-	    ;;
-	    ;; ("A" ("A" "A")^("B" "A")) with transition defined as ("A" ("A" "A")) ->
-	    ;; ("A" ("A" "B"))
-	    
-	    (in-current-state-but-not-trans (get-states-described-by-name possible-final-state-names
-									  in-current-state-but-not-trans))
-	    ;; no orthogonal states involved
-	    (t possible-final-state-names))))
-    (cond
-      ((not final-states) (error "Couldn't find final state ?"))
-      ;; final states not completely specified, need to select default state
-      ((> (length final-states) 1)
-       (let ((final-from-partial (get-partial-default-state final-states trans-final-state-name)))
-	 (unless final-from-partial
-	   (error "Couldn't determine default states for final states."))
-	 final-from-partial))
-      ;; final state completely specified
-      (t (first final-states)))))
-
-
-(defun get-reentry-actions (final-state transitions)
-  (let+ ((states-with-reentry-actions
-	  (mapcar #'initial-state-name (remove-if #'not transitions :key #'is-reentry)))
-	 (joined-reentry-state (if states-with-reentry-actions
-				   (reduce #'join-state-names states-with-reentry-actions)
-				   (return-from get-reentry-actions '())))
-	 (explicit-state (remove-implicit-substates final-state joined-reentry-state)))
-    (remove-if #'not (recursive-accumulation explicit-state #'on-reentry))))
-
-
-
-(defun find-fsm-state-for (state all-fsm-states)
-  (alexandria:if-let (ret (find (create-state-name state) all-fsm-states
-				:key #'name :test #'state-name=))
-    ret (error "Huh ? couldn't find fsm state for state: ~a" state)))
-
-
-
-(defun set-transition (initial-state event-name transitions all-fsm-states all-states)
-  (let+ ((initial-fsm-state (find-fsm-state-for initial-state all-fsm-states))
-	 (final-state (determine-final-states all-states initial-state transitions))
-	 (final-fsm-state (find-fsm-state-for final-state all-fsm-states))
-	 ((&values on-exit-actions on-entry-actions) (determine-entry/exit-actions initial-state final-state))
-	 ;; assuming that 
-	 (on-reentry-actions (get-reentry-actions final-state transitions)))
-    (pushnew (cons event-name
-		   (make-instance 'tr-target
-				  :on-entry-actions on-entry-actions
-				  :on-exit-actions on-exit-actions
-				  :on-reentry-actions on-reentry-actions
-				  :initial-name (create-state-name initial-state)
-				  :final-name (create-state-name final-state)
-				  :fsm-state final-fsm-state))
-	     (ev->state initial-fsm-state)
-	     :test #'equal
-	     :key #'first)))
-
-
-
-(defun set-transitions-for-fsm-states (all-states all-fsm-states all-transitions)
-  (labels ((find-events/transition-originating-from-state (state)
-	     (group-by:group-by (remove-if-not
-				 #'(lambda (tr)
-				     (state-described-by-name state (initial-state-name tr)))
-				 all-transitions)
-				:key #'event-name :value #'identity)))
-    (iter 
-      (for initial-state in all-states)
-      ;; for every EVENT-NAME and TRANSITIONS* originating in INITIAL-STATE
-      ;; find and set FINAL-STATE when applying TRANSITIONS* to INITIAL-STATE
-      (iter
-	(for (event-name . transitions) in (find-events/transition-originating-from-state initial-state))
-	(when transitions
-	  (set-transition initial-state event-name transitions all-fsm-states all-states))))))
-
-
-
-
 

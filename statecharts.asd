@@ -16,13 +16,16 @@
 		#:fare-quasiquote-extras)
   :serial t
   :components ((:file "package")
+	       (:file "utils")
 	       (:file "api")
 	       (:file "dsl-objects")
-	       (:file "state-name")
+	       (:file "state-name-objects")	       
 	       (:file "chart-objects")
-	       (:file "chart-compute")
 	       (:file "fsm-objects")
+	       (:file "state-name-compute")
+	       (:file "chart-compute")
 	       (:file "dsl-definition")
+	       (:file "fsm-compute")
 	       (:file "fsm-runtime")
 	       (:file "uml-output")))
 

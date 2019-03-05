@@ -1,4 +1,4 @@
-(in-package #:statecharts)
+(in-package #:fsm)
 
 
 (defclass statecharts-runtime-fsm ()
@@ -16,6 +16,7 @@
    :processing nil
    :event-queue (queues:make-queue :simple-queue)))
 
+
 (defclass debug-statecharts-runtime-fsm (statecharts-runtime-fsm)
   ((debug-fn :accessor debug-fn :initarg :debug-fn
 	     :initform #'(lambda (cat str &rest args)
@@ -25,33 +26,9 @@
 
 
 
-
-
-(defmethod %signal-event ((runtime statecharts-runtime-fsm) event environment)
-  (let+ (((&slots current-state) runtime)
-	 ((&slots ev->state on-exit) current-state)
-	 (ev.target (assoc event ev->state)))
-    ;; fixmee: guards not implemented yet
-    (labels ((execute-actions (actions category)
-	       (declare (ignore category))
-	       (iter
-		 (for act in actions)
-		 (funcall (error-handler environment)
-			  (fun act) environment))))
-      (cond
-	((not ev.target)
-	 (return-from %signal-event nil))
-	(t (let+ (((&slots fsm-state on-exit-actions on-entry-actions on-reentry-actions)
-		   (cdr ev.target)))
-	     (execute-actions on-exit-actions :actions)
-	     (setf current-state fsm-state)
-	     (execute-actions on-entry-actions :actions)
-	     (execute-actions on-reentry-actions :actions)))))))
-
-(defmethod %signal-event ((runtime debug-statecharts-runtime-fsm) event environment)
-  (let+ (((&slots current-state debug-fn) runtime)
-	 ((&slots ev->state on-exit) current-state)
-	 (ev.target (assoc event ev->state)))
+(defun %%signal-event (current-state debug-fn event environment)
+  (let+ (((&slots ev->state on-exit) current-state)
+	 (ev/target* (assoc event ev->state)))
     ;; fixmee: guards not implemented yet
     (labels ((dbgout (cat str &rest args)
 	       (apply debug-fn cat str args))
@@ -64,18 +41,32 @@
 			  (fun act) environment))))
       (dbgout :signal-event "Received event: ~a" event)
       (cond
-	((not ev.target)
+	((not ev/target*)
 	 (dbgout :signal-event "Not reacting on event: ~a in state: ~a" event (name current-state))
-	 (return-from %signal-event nil))
-	(t (let+ (((&slots fsm-state on-exit-actions on-entry-actions on-reentry-actions)
-		   (cdr ev.target)))
-	     (dbgout :signal-event "Leaving state: ~a" (name current-state))
-	     (execute-actions on-exit-actions :actions)
-	     (setf current-state fsm-state)
-	     (dbgout :signal-event "Entered state: ~a" (name current-state))
-	     (execute-actions on-entry-actions :actions)
-	     (execute-actions on-reentry-actions :actions)))))))
+	 (return-from %%signal-event current-state))
+	(t
+	 (iter
+	   (for target in (cdr ev/target*)) 
+	   (when (applicable target environment)
+	     (let+ (((&slots fsm/state on-exit-actions on-entry-actions on-reentry-actions) target))
+	       (dbgout :signal-event "Leaving state: ~a" (name current-state))
+	       (execute-actions on-exit-actions :exit-actions) 
+	       (dbgout :signal-event "Entered state: ~a" (name current-state))
+	       (execute-actions on-entry-actions :entry-actions)
+	       (execute-actions on-reentry-actions :reentry-actions)
+	       (return fsm/state)))
+	   (finally (return current-state))))))))
 
+
+(defmethod %signal-event ((runtime debug-statecharts-runtime-fsm) event environment)
+  (let+ (((&slots current-state debug-fn) runtime))
+    (setf current-state
+	  (%%signal-event current-state debug-fn event environment))))
+
+(defmethod %signal-event ((runtime statecharts-runtime-fsm) event environment)
+  (let+ (((&slots current-state) runtime))
+    (setf current-state
+	  (%%signal-event current-state (constantly nil) event environment))))
 
 (defgeneric signal-event (environment event &key))
 
@@ -98,16 +89,16 @@
 
 
 (defun create-fsm-runtime (statechart &key debug)
-  (let+ (((&slots events fsm-states default-state) statechart)
-	 (default-fsm-state (find (create-state-name default-state)
-				  fsm-states :test #'state-name=
+  (let+ (((&slots events fsm/states default-state) statechart)
+	 (default-fsm/state (find (name::name::from-chart-state default-state)
+				  fsm/states :test #'name::state=
 				  :key #'name)))
-    (if (not default-fsm-state)
+    (if (not default-fsm/state)
 	(error "Huh ? Couldn't find default state: ~a ?" default-state))
     (make-instance (if debug
 		       'debug-statecharts-runtime-fsm
 		       'statecharts-runtime-fsm)
-		   :default-state default-fsm-state
-		   :states fsm-states
-		   :current-state default-fsm-state
+		   :default-state default-fsm/state
+		   :states fsm/states
+		   :current-state default-fsm/state
 		   :events events)))

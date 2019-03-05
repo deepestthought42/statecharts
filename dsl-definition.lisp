@@ -1,29 +1,36 @@
 (in-package #:statecharts)
 
+
+
 ;;; macros and their helper that make up the statecharts DSL
+(defun parse-guard-clause (clause environment-symbol)
+  (match clause
+    ((guard (list (or 't 'otherwise) final-state)
+	    (or (typep final-state 'string)
+		(typep final-state 'symbol)))
+     `(make-instance 'statecharts.dsl::otherwise-clause :final-state ,final-state))
+    ((guard (list code final-state)
+	    (or (typep final-state 'string)
+		(typep final-state 'symbol)))
+     `(make-instance 'statecharts.dsl::guard-clause :final-state ,final-state
+						    :fun #'(lambda (,environment-symbol)
+							     (ignorable ,environment-symbol)
+							     ,code)
+						    :code ',code))
+    (otherwise (error "Could not parse guard clause: ~a" clause))))
 
 
-(defun %t (initial-name event final-name if)
-  (labels ((format-name (name)
-	     (cond
-	       ((stringp name) name)
-	       ((listp name) (format nil "~{~a~^::~}" name))
-	       (t (error "This should happen.")))))
-    (make-instance 'transition
-		   :name (format nil "~a -> ~a"
-				 (format-name initial-name)
-				 (format-name final-name))
-		   :event event
-		   :initial-state initial-name
-		   :final-state final-name
-		   :guards (if if if (constantly t)))))
 
+(defun parse-final-state (final)
+  (match final
+    ((or (type string) (type symbol))
+     `(list (make-instance 'statecharts.dsl::transition-clause :final-state ,final)))
+    ((cons (or 'cond 'guard) (cons (or (cons environment-symbol _) (list)) clauses))
+     (if (not clauses)
+	 (error "Couldn't parse final state specification: ~a" final))
+     `(list ,@(mapcar #'(lambda (clause) (parse-guard-clause clause environment-symbol)) clauses)))
+    (otherwise (error "Couldn't parse final state specification: ~a" final))))
 
-(defun %s (name description entry exit reentry)
-  (make-instance 'state :name name :description description
-			:on-entry entry
-			:on-reentry reentry
-			:on-exit exit))
 
 
 
@@ -41,33 +48,31 @@
 
 
 ;;;; helper macros
-
-
 (defmacro %superstate (type name state-selector default-state description entry exit reentry sub-states)
-  (case type
+  (ecase type
     (cluster
      `(let ((sub-states (list ,@sub-states)))
 	(if (not (find ,default-state sub-states :key #'name :test #'string=))
 	    (error 'couldnt-find-default-state
 		   :default-state ,default-state
 		   :cluster ,name))
-	(make-instance 'cluster :name ,name :description ,description
-				:on-entry ,entry
-				:on-exit ,exit
-				:on-reentry ,reentry
-				:selector-type ',state-selector
-				:default-state ,default-state
-				:elements sub-states)))
+	(make-instance 'statecharts.dsl::cluster :name ,name :description ,description
+						 :on-entry ,entry
+						 :on-exit ,exit
+						 :on-reentry ,reentry
+						 :selector-type ',state-selector
+						 :default-state ,default-state
+						 :elements sub-states)))
     (orthogonal
-     `(make-instance 'orthogonal :name ,name :description ,description
-				 :on-entry ,entry
-				 :on-reentry ,reentry
-				 :on-exit ,exit
-				 :elements (list ,@sub-states)))))
+     `(make-instance 'statecharts.dsl::orthogonal :name ,name :description ,description
+						  :on-entry ,entry
+						  :on-reentry ,reentry
+						  :on-exit ,exit
+						  :elements (list ,@sub-states)))))
 
 ;;; statechart definition language
 
-(defmacro -> (event initial final &key when-in-state)
+(defmacro -> (event initial final)
   "Given event with name EVENT, construct an object of type TRANSITION
 from initial state with name INITIAL to final state with name
 FINAL. If IF is non-nil, it is assumed to be a function of one
@@ -75,11 +80,11 @@ parameter, the statechart ENVIRONMENT and the transition will only
 proceed if IF returns true.
 
 ==> TRANSITION"
-  `(statecharts::%t ,initial ,event ,final ,when-in-state))
+  (let+ ((clauses (parse-final-state final)))
+    `(statecharts.dsl::make-transition ,initial ,event ,clauses)))
 
 
-(defmacro o (name (&key (description "") entry exit reentry)
-	     &body sub-states)
+(defmacro o (name (&key (description "") entry exit reentry) &body sub-states)
   "Returns an object of type ORTHOGONAL (with its sub-states being
 active at the same time, i.e. a logical conjunction of the sub-states:
 O(A1,...,AN) = A1 /\ A2 /\ ... /\ AN) with the name NAME that will
@@ -93,8 +98,8 @@ functions of one variable and will be called with the ENVIRONMENT as
 their parameter.
 
 => ORTHOGONAL"
-  `(%superstate orthogonal ,name nil nil
-		,description ,entry ,exit ,reentry ,sub-states))
+  `(sc::%superstate orthogonal ,name nil nil
+		    ,description ,entry ,exit ,reentry ,sub-states))
 
 (defmacro c (name (state-selector default-state &key (description "")
 						     entry exit reentry)
@@ -113,8 +118,10 @@ functions of one variable and will be called with the ENVIRONMENT as
 their parameter.
 
 => CLUSTER"
-  `(%superstate cluster ,name ,state-selector ,default-state
-     ,description ,entry ,exit ,reentry ,sub-states))
+  `(sc::%superstate cluster ,name ,state-selector ,default-state
+		    ,description ,entry ,exit ,reentry ,sub-states))
+
+
 
 
 (defmacro s (name &key (description "") entry exit reentry)
@@ -126,15 +133,15 @@ NAME. EXIT and ENTRY a functions of one variable and will be called
 with the ENVIRONMENT as their parameter.
 
 => STATE"
-  `(statecharts::%s ,name ,description ,entry ,exit ,reentry))
+  `(make-instance 'statecharts.dsl::state
+		  :name ,name :description ,description
+		  :on-entry ,entry
+		  :on-reentry ,reentry
+		  :on-exit ,exit))
 
-
-(defmacro :or (&rest guards))
-
-(defmacro :and (&rest guards))
 
 (defmacro act ((&optional (environment-symbol 'env)) &body code)
-  `(make-instance 'sc:action
+  `(make-instance 'statecharts.dsl::action
 		  :code ',code
 		  :fun #'(lambda (,environment-symbol)
 			   (declare (ignorable ,environment-symbol))
@@ -142,18 +149,18 @@ with the ENVIRONMENT as their parameter.
 
 
 (defun %create-state-chart (name root description)
-  (let* ((states (compute-substates root))
-	 (fsm-states (create-fsm-states states))
-	 (transitions (compute-transitions root '() root))
+  (let* ((states (chart::compute-substates root))
+	 (transitions (chart::compute-transitions root '() root))
+	 (fsm-states (fsm::create-states states))
 	 (events (remove-duplicates (mapcar #'event-name transitions)))
-	 (default-state (first (remove-if-not #'is-default-state states))))
-    (set-transitions-for-fsm-states states fsm-states transitions)
+	 (default-state (first (remove-if-not #'chart::is-default-state states))))
+    (set-transitions-for-fsm/states states fsm-states transitions)
     (make-instance 'statecharts::statechart
 		   :name (string name)
 		   :description description
 		   :root root
 		   :states states
-		   :fsm-states fsm-states
+		   :fsm/states fsm-states
 		   :transitions transitions
 		   :events events
 		   :default-state default-state)))
@@ -162,7 +169,7 @@ with the ENVIRONMENT as their parameter.
 (defmacro defstatechart ((name &key (description ""))
 			 &body definitions)
   (%check-defstatechart-arguments name description definitions)
-  (clear-id)
+  (dsl::clear-id)
   `(defparameter ,name (%create-state-chart ',name
 					    (progn ,@definitions)
 					    ,description)))
@@ -170,30 +177,3 @@ with the ENVIRONMENT as their parameter.
 
 
 
-
-;; (named-readtables:in-readtable :fare-quasiquote)
-
-;; (match (list 1 2 3 45)
-;;   (`(,b ,c ,@rest)
-;;     (assert (= 1 b))
-;;     (assert (= 2 c))
-;;     rest))
-
-
-
-
-;; (defun parse (list-of-elements)
-;;   (iter
-;;     (for el in list-of-elements)))
-
-
-
-;; (defun dsl (&rest statechart-description)
-;;   "Parse statecharts DSL ")
-                                                              
-
-
-
-;; (defparameter /sc-test/
-;;   '(:c :d test
-;;     :))

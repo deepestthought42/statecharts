@@ -1,11 +1,14 @@
-(in-package #:statecharts)
+(defpackage #:statecharts.chart
+  (:use #:cl #:iterate #:let-plus)
+  (:import-from #:statecharts.dsl
+		transition-clause
+		otherwise-clause
+		guard-clause)
+  (:nicknames #:chart))
 #+nil
 (declaim (optimize (debug 3) (speed 0) (space 0)))
 
-
-
-(defun state-p (obj)
-  (typep obj 'state))
+(in-package #:chart)
 
 
 (defclass s ()
@@ -26,37 +29,16 @@
   ((sub-states :initarg :sub-states :accessor sub-states 
 	       :initform (error "Must initialize sub-states."))))
 
+(defgeneric copy-state (s &key))
 
-(defgeneric copy-state (s &key)
-  (:method ((s s) &key (name (name s)) (defining-state (defining-state s))
-		       (on-entry (on-entry s)) (on-reentry (on-reentry s))
-		       (on-exit (on-exit s)))
-    (make-instance 's :name name
-		      :defining-state defining-state
-		      :on-entry on-entry
-		      :on-reentry on-reentry
-		      :on-exit on-exit))
-  (:method ((s s-xor) &key (name (name s)) (defining-state (defining-state s))
-			   (on-entry (on-entry s)) (on-reentry (on-reentry s))
-			   (on-exit (on-exit s)) (sub-state (sub-state s))
-			   (default-state (default-state s)))
-    (make-instance 's-xor :name name
-			  :defining-state defining-state
-			  :on-entry on-entry
-			  :on-reentry on-reentry
-			  :on-exit on-exit
-			  :sub-state sub-state
-			  :default-state default-state))
-  (:method ((s s-and) &key (name (name s)) (defining-state (defining-state s))
-			   (on-entry (on-entry s)) (on-reentry (on-reentry s))
-			   (on-exit (on-exit s)) (sub-states (sub-states s)))
-    (make-instance 's-and :name name
-			  :defining-state defining-state
-			  :on-entry on-entry
-			  :on-reentry on-reentry
-			  :on-exit on-exit
-			  :sub-states sub-states)))
+(sc::define-copy-object-method (s copy-state)
+  name defining-state on-entry on-reentry on-exit)
 
+(sc::define-copy-object-method (s-xor copy-state)
+  name defining-state on-entry on-reentry on-exit sub-state default-state)
+
+(sc::define-copy-object-method (s-and copy-state)
+  name defining-state on-entry on-reentry on-exit sub-states)
 
 
 (defgeneric get-leaf (s)
@@ -74,42 +56,27 @@
 
 
 
-
-(defclass tr ()
+(defclass transition ()
   ((initial-state-name :initarg :initial-state-name :accessor initial-state-name 
 		       :initform (error "Must initialize initial-state-name."))
    (final-state-name :initarg :final-state-name :accessor final-state-name 
 		     :initform (error "Must initialize final-state-name."))
-   (is-reentry :accessor is-reentry :initarg :is-reentry
-	       :initform (error "Must initialize is-reentry"))
+   (transition-group-id :accessor transition-group-id :initarg :transition-group-id
+			:initform (error "Need to initialize TRANSITION-GROUP-ID."))
    (event-name :initarg :event-name :accessor event-name 
 	       :initform (error "Must initialize event-state-name."))
-   (guard :initarg :guard :accessor guard 
-	  :initform (error "Must initialize guard."))))
+   (clauses :accessor clauses :initarg :clauses
+	    :initform (error "Need to initialize CLAUSES."))))
 
-
-(defclass tr-target ()
-  ((on-entry-actions :initarg :on-entry-actions :accessor on-entry-actions 
-		     :initform (error "Must initialize on-entry-actions."))
-   (on-reentry-actions :initarg :on-reentry-actions :accessor on-reentry-actions 
-		       :initform (error "Must initialize on-reentry-actions."))
-   (on-exit-actions :initarg :on-exit-actions :accessor on-exit-actions 
-		    :initform (error "Must initialize on-exit-actions."))
-   (initial-name :initarg :initial-name :accessor initial-name 
-		 :initform (error "Must initialize initial-name."))
-   (final-name :initarg :final-name :accessor final-name 
-	       :initform (error "Must initialize final-name."))
-   (fsm-state :initarg :fsm-state :accessor fsm-state 
-	      :initform (error "Must initialize fsm-state."))))
 
 
 ;;; printing
 
-(defmethod print-object ((obj tr) stream)
+(defmethod print-object ((obj transition) stream)
   (print-unreadable-object (obj stream)
-    (print-state-name (initial-state-name obj) stream)
+    (sc::%print-object (initial-state-name obj) stream)
     (format stream " --|~a|--> " (event-name obj))
-    (print-state-name (final-state-name obj) stream)))
+    (sc::%print-object (final-state-name obj) stream)))
 
 
 (defmethod print-object ((obj s) stream)
@@ -146,17 +113,17 @@
   nil)
 
 (defmethod  state=state-name ((state s)
-			      (state-name state-name))
+			      (state-name name::state))
   (string= (name state-name)
 	   (name state)))
 
 (defmethod  state=state-name ((state s-xor)
-			      (state-name or-state-name))
+			      (state-name name::or-state))
   (string= (name state-name)
 	   (name state)))
 
 (defmethod  state=state-name ((state s-and)
-			      (state-name and-state-name))
+			      (state-name name::and-state))
   (string= (name state-name)
 	   (name state)))
 
@@ -238,22 +205,7 @@
 		   (for explicit = (remove-implicit-substates s sn))
 		   (when explicit (collect explicit)))))))
 
-;;; create state-name from s
 
-(defgeneric create-state-name (s))
-
-(defmethod create-state-name ((s s))
-  (make-instance 'state-name :name (name s)))
-
-(defmethod create-state-name ((s s-xor))
-  (make-instance 'or-state-name
-		 :name (name s)
-		 :sub-state (create-state-name (sub-state s))))
-
-(defmethod create-state-name ((s s-and))
-  (make-instance 'and-state-name
-		 :name (name s)
-		 :sub-states (mapcar #'create-state-name (sub-states s))))
 
 ;;; default states
 
@@ -289,20 +241,20 @@
   => in-a-but-not-b*, in-b-but-not-a*"))
 
 (defmethod difference ((a s) (b s))
-  (if (= (id (defining-state a))
-	 (id (defining-state b)))
+  (if (= (dsl::id (defining-state a))
+	 (dsl::id (defining-state b)))
       (values '() '())
       (values (list a) (list b))))
 
 (defmethod difference ((a s-xor) (b s-xor))
-  (if (= (id (defining-state a))
-	 (id (defining-state b)))
+  (if (= (dsl::id (defining-state a))
+	 (dsl::id (defining-state b)))
       (difference (sub-state a) (sub-state b))
       (values (list a) (list b))))
 
 
 (defmethod difference ((a s-and) (b s-and))
-  (labels ((d-id (s) (id (defining-state s))))
+  (labels ((d-id (s) (dsl::id (defining-state s))))
     (cond
       ((= (d-id a) (d-id b))
        (if (not (= (length (sub-states a))
@@ -325,15 +277,15 @@
 
 (defgeneric %is-partial-default-state (s state-name))
 
-(defmethod %is-partial-default-state ((s s) (state-name state-name)) t)
+(defmethod %is-partial-default-state ((s s) (state-name name::state)) t)
 
-(defmethod %is-partial-default-state ((s s-xor) (state-name or-state-name))
+(defmethod %is-partial-default-state ((s s-xor) (state-name name::or-state))
   (if (sub-state state-name)
       (%is-partial-default-state (sub-state s) (sub-state state-name))
       (is-default-state s)))
 
 
-(defmethod %is-partial-default-state ((s s-and) (state-name and-state-name))
+(defmethod %is-partial-default-state ((s s-and) (state-name name::and-state))
   (labels ((find-state-name (sub-s state-names)
 	     (iter
 	       (for state-name in state-names)
