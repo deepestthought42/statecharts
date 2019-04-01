@@ -14,7 +14,7 @@
 		(typep final-state 'symbol)))
      `(make-instance 'statecharts.dsl::guard-clause :final-state ,final-state
 						    :fun #'(lambda (,environment-symbol)
-							     (ignorable ,environment-symbol)
+							     (declare (ignorable ,environment-symbol))
 							     ,code)
 						    :code ',code))
     (otherwise (error "Could not parse guard clause: ~a" clause))))
@@ -52,7 +52,7 @@
   (ecase type
     (cluster
      `(let ((sub-states (list ,@sub-states)))
-	(if (not (find ,default-state sub-states :key #'name :test #'string=))
+	(if (not (find ,default-state sub-states :key #'dsl::name :test #'string=))
 	    (error 'couldnt-find-default-state
 		   :default-state ,default-state
 		   :cluster ,name))
@@ -148,19 +148,30 @@ with the ENVIRONMENT as their parameter.
 			   ,@code)))
 
 
+(defclass statechart ()
+  ((name :accessor name :initarg :name :initform (error "Need to initialize NAME."))
+   (description :accessor description :initarg :description
+		:initform (error "Need to initialize DESCRIPTION."))
+   (events :accessor events :initarg :events :initform nil)
+   (root :accessor root :initarg :root :initform nil)
+   (states :accessor states :initarg :states :initform '())
+   (fsm-states :accessor fsm-states :initarg :fsm-states :initform '())
+   (default-state :accessor default-state :initarg :default-state :initform nil)
+   (transitions :accessor transitions :initarg :transitions :initform '())))
+
 (defun %create-state-chart (name root description)
   (let* ((states (chart::compute-substates root))
 	 (transitions (chart::compute-transitions root '() root))
 	 (fsm-states (fsm::create-states states))
-	 (events (remove-duplicates (mapcar #'event-name transitions)))
+	 (events (remove-duplicates (mapcar #'chart::event-name transitions)))
 	 (default-state (first (remove-if-not #'chart::is-default-state states))))
-    (set-transitions-for-fsm/states states fsm-states transitions)
+    (fsm::set-transitions-for-states states fsm-states transitions)
     (make-instance 'statecharts::statechart
 		   :name (string name)
 		   :description description
 		   :root root
 		   :states states
-		   :fsm/states fsm-states
+		   :fsm-states fsm-states
 		   :transitions transitions
 		   :events events
 		   :default-state default-state)))

@@ -90,7 +90,7 @@
 
 (defun create-fsm-runtime (statechart &key debug)
   (let+ (((&slots events fsm/states default-state) statechart)
-	 (default-fsm/state (find (name::name::from-chart-state default-state)
+	 (default-fsm/state (find (name::from-chart-state default-state)
 				  fsm/states :test #'name::state=
 				  :key #'name)))
     (if (not default-fsm/state)

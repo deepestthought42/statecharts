@@ -24,6 +24,7 @@
       (error "Must initialize name for statechart-element.")))
 
 
+
 (defclass event (statechart-element)
   ((registered-transitions :accessor registered-transitions :initarg :registered-transitions
 			   :initform '())))
@@ -77,10 +78,6 @@
 (sc::define-copy-object-method (otherwise-clause) final-state)
 (sc::define-copy-object-method (guard-clause) final-state code fun)
 
-(defgeneric context-dependendp (clause)
-  (:method (clause) nil)
-  (:method ((clause guard-clause)) t)
-  (:method ((clause otherwise-clause)) t))
 
 (defgeneric applicable (target environment)
   (:method ((clause transition-clause) environment) t)
@@ -149,6 +146,19 @@
     (format stream "o: ~a" (name obj))))
 
 
+(defmethod print-obect ((obj transition-clause) stream)
+  (print-unreadable-object (obj stream)
+    (sc::%print-object obj stream)))
 
+(defmethod sc::%print-object ((obj transition-clause) stream)
+  (format stream "~a" (name::name (final-state obj))))
+
+(defmethod sc::%print-object ((obj otherwise-clause) stream)
+  (format stream "(otherwise -> ~a)" (name::name (final-state obj))))
+
+(defmethod sc::%print-object ((obj guard-clause) stream)
+  (format stream "(if ~a -> ~a)"
+	  (code obj)
+	  (name::name (final-state obj))))
 
 

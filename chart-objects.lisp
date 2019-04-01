@@ -59,8 +59,6 @@
 (defclass transition ()
   ((initial-state-name :initarg :initial-state-name :accessor initial-state-name 
 		       :initform (error "Must initialize initial-state-name."))
-   (final-state-name :initarg :final-state-name :accessor final-state-name 
-		     :initform (error "Must initialize final-state-name."))
    (transition-group-id :accessor transition-group-id :initarg :transition-group-id
 			:initform (error "Need to initialize TRANSITION-GROUP-ID."))
    (event-name :initarg :event-name :accessor event-name 
@@ -69,6 +67,10 @@
 	    :initform (error "Need to initialize CLAUSES."))))
 
 
+(defgeneric guardedp (clause)
+  (:method (clause) nil)
+  (:method ((clause guard-clause)) t)
+  (:method ((clause otherwise-clause)) nil))
 
 ;;; printing
 
@@ -76,7 +78,10 @@
   (print-unreadable-object (obj stream)
     (sc::%print-object (initial-state-name obj) stream)
     (format stream " --|~a|--> " (event-name obj))
-    (sc::%print-object (final-state-name obj) stream)))
+    (mapcar #'(lambda (g)
+		(format stream "~t")
+		(sc::%print-object g stream))
+	    (clauses obj))))
 
 
 (defmethod print-object ((obj s) stream)
@@ -112,19 +117,19 @@
 			      (state-name t))
   nil)
 
-(defmethod  state=state-name ((state s)
-			      (state-name name::state))
-  (string= (name state-name)
+(defmethod state=state-name ((state s)
+			     (state-name name::state))
+  (string= (name::name state-name)
 	   (name state)))
 
-(defmethod  state=state-name ((state s-xor)
-			      (state-name name::or-state))
-  (string= (name state-name)
+(defmethod state=state-name ((state s-xor)
+			     (state-name name::or-state))
+  (string= (name::name state-name)
 	   (name state)))
 
-(defmethod  state=state-name ((state s-and)
-			      (state-name name::and-state))
-  (string= (name state-name)
+(defmethod state=state-name ((state s-and)
+			     (state-name name::and-state))
+  (string= (name::name state-name)
 	   (name state)))
 
 
@@ -141,9 +146,9 @@
     ;; name and state-name have to match as well as the type of name
     ((not (state=state-name s state-name)) nil)
     ;; the name matches but doesn't specify any sub-states -> match
-    ((not (sub-state state-name)) t)
+    ((not (name::sub-state state-name)) t)
     ;; the name still matches and specifies sub-states -> test substate
-    (t (state-described-by-name (sub-state s) (sub-state state-name)))))
+    (t (state-described-by-name (sub-state s) (name::sub-state state-name)))))
 
 (defmethod state-described-by-name ((s s-and) state-name)
   (labels ((is-sub-state (k)

@@ -14,12 +14,12 @@
 
 (defun from-description (state-description dsl-element &optional super-state)
   (labels ((throw-invalid (reason &rest args)
-	     (error 'invalid-state-descriptor :descriptor state-description
-					      :reason (apply #'format nil reason args)))
+	     (error 'sc::invalid-state-descriptor :descriptor state-description
+						  :reason (apply #'format nil reason args)))
 	   (state-p (obj) (typep obj 'dsl::state))
 	   (find-element (state elements)
 	     (alexandria:if-let (sub-s (find state (remove-if-not #'state-p elements)
-					     :key #'name
+					     :key #'dsl::name
 					     :test #'string=))
 	       sub-s (throw-invalid "Could not find state with name: ~a" state)))
 	   (make-and (state %element states-description)
@@ -51,7 +51,7 @@
 	       (cond
 		 ((not %state-description) nil)
 		 ((not (and (stringp state)
-			    (string= state (name %element))))
+			    (string= state (dsl::name %element))))
 		  (throw-invalid "Unknown or invalid state name: ~a" state))
 		 ;; orthogonal cluster
 		 ((and (typep %element 'dsl::orthogonal))
@@ -69,7 +69,7 @@
 									 (dsl::elements %element))))
 				   (t (throw-invalid "Invalid state syntax: ~a" (first rest)))))) 
 		 ;; leaf state
-		 ((and (typep %element 'state)
+		 ((and (typep %element 'dsl::state)
 		       (not (typep %element 'dsl::cluster)))
 		  (make-instance 'state :name state))
 		 ;; 
@@ -315,14 +315,14 @@
 (defgeneric from-chart-state (s))
 
 (defmethod from-chart-state ((s chart::s))
-  (make-instance 'name::state :name (name s)))
+  (make-instance 'name::state :name (chart::name s)))
 
 (defmethod from-chart-state ((s chart::s-xor))
   (make-instance 'name::or-state
-		 :name (name s)
-		 :sub-state (from-chart-state (sub-state s))))
+		 :name (chart::name s)
+		 :sub-state (from-chart-state (chart::sub-state s))))
 
 (defmethod from-chart-state ((s chart::s-and))
   (make-instance 'name::and-state
-		 :name (name s)
-		 :sub-states (mapcar #'from-chart-state (sub-states s))))
+		 :name (chart::name s)
+		 :sub-states (mapcar #'from-chart-state (chart::sub-states s))))

@@ -167,6 +167,7 @@
       (sc:s "b")
       (sc:-> "ev" "a" "a")
       (sc:-> "ev" "b" "a"))
+
     (sc:c "fucker upper" (sc:d "a")
       (sc:s "a")
       (sc:s "b" :reentry (act (e) (format t "reentry fucker~%")))

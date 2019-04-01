@@ -25,7 +25,7 @@
 	    (collect (make-instance 's-xor :name dsl::name :sub-state s
 					   :defining-state cluster
 					   :on-entry (dsl::on-entry cluster)
-					   :on-reentry (on-reentry cluster)
+					   :on-reentry (dsl::on-reentry cluster)
 					   :on-exit (dsl::on-exit cluster)
 					   :default-state dsl::default-state)))))))
 
@@ -84,10 +84,11 @@
 	   = (name::from-description (dsl::initial-state el) chart-element super-state))
       (for clauses
 	   = (mapcar #'(lambda (c) (%make-clause c chart-element super-state)) (dsl::clauses el)))
-      (make-instance 'chart::transition :event-name (dsl::event-symbol el)
-					:initial-state-name initial-state-name
-					:transition-group-id (dsl::id el)
-					:clauses clauses))))
+      (collect
+	  (make-instance 'chart::transition :event-name (dsl::event-symbol el)
+					    :initial-state-name initial-state-name
+					    :transition-group-id (dsl::id el)
+					    :clauses clauses)))))
 
 
 (defmethod compute-transitions ((s dsl::cluster) super-state  dsl-element)

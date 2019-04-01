@@ -4,9 +4,9 @@
 (defun create-states (states)
   (iter
     (for s in states)
-    (collect (make-instance 'fsm/state :name (name::from-chart-state s)))))
+    (collect (make-instance 'fsm::state :name (name::from-chart-state s)))))
 
-(defun find-fsm/state-for (state all-fsm/states)
+(defun find-state-for (state all-fsm/states)
   (alexandria:if-let (ret (find (name::from-chart-state state) all-fsm/states
 				:key #'name :test #'name::state=))
     ret (error "Huh ? couldn't find fsm state for state: ~a" state)))
@@ -74,8 +74,8 @@
 	 ;; calculate the states that are defined in the current state (as given by
 	 ;; FULL-INITIAL-STATE-NAME) but are not described by the initial-state of
 	 ;; TRANSITIONS
-	 (in-current-state-but-not-trans (name::difference-state-names full-initial-state-name
-								 trans-init-state-name))
+	 (in-current-state-but-not-trans (name::difference full-initial-state-name
+							   trans-init-state-name))
 	 ;; select FINAL-STATES from possible states such that orthogonal states not
 	 ;; affected by TRANSITIONS stay the same 
 	 (final-states
@@ -111,7 +111,9 @@
 
 (defun get-reentry-actions (final-state transitions)
   (let+ ((states-with-reentry-actions
-	  (mapcar #'chart::initial-state-name (remove-if #'not transitions :key #'chart::is-reentry)))
+	  (mapcar #'chart::initial-state-name
+		  (remove-if #'not transitions
+			     :key #'(lambda (tr) (name::state= (initial-name tr) (final-name tr))))))
 	 (joined-reentry-state (if states-with-reentry-actions
 				   (reduce #'name::join states-with-reentry-actions)
 				   (return-from get-reentry-actions '())))
@@ -146,12 +148,13 @@
 		     :final-name (name::from-chart-state final-state)
 		     :fsm/state final-fsm/state)))
 
-(defun set-fsm/transition-target (initial-state event-name combined-transitions all-fsm/states all-states)
-  (let+ ((initial-fsm/state (find-fsm/state-for initial-state all-fsm/states))
-	 (final-state (chart::determine-final-states all-states initial-state combined-transitions))
-	 (final-fsm/state (find-fsm/state-for final-state all-fsm/states))
-	 (guards (mapcar #'chart::guards combined-transitions))
-	 ((&values on-exit-actions on-entry-actions) (chart::determine-entry/exit-actions initial-state final-state))
+(defun set-transition-target (initial-state event-name combined-transitions all-fsm/states all-states)
+  (let+ ((initial-fsm/state (find-state-for initial-state all-fsm/states))
+	 (final-state (determine-final-states all-states initial-state combined-transitions))
+	 (final-fsm/state (find-state-for final-state all-fsm/states))
+	 (guards (mapcar #'guards combined-transitions))
+	 ((&values on-exit-actions on-entry-actions)
+	  (determine-entry/exit-actions initial-state final-state))
 	 ;; assuming that
 	 (on-reentry-actions (get-reentry-actions final-state combined-transitions))
 	 (target (make-fsm/target on-entry-actions on-exit-actions on-reentry-actions
@@ -188,39 +191,41 @@ and return a set of the set of combined transitions with final states of the tra
 determined by the guards. "
   (iter
     (for tr in transitions)
-    (for g = (guard tr))
-    (if (context-dependendp g)
-	(collect tr into dependend)
-	(collect tr into independent))
+    (for g = (chart::clauses tr))
+    (if (chart::guardedp g)
+	(collect tr into guarded)
+	(collect tr into unguarded))
     (finally
      (return
-       (if dependend
+       (if guarded
 	   (mapcar #'(lambda (cg)
-		       (append independent cg))
-		   (combine-sets dependend))
-	   (list independent))))))
+		       (append unguarded cg))
+		   (combine-sets guarded))
+	   (list unguarded))))))
 
 
 
 
-(defun set-transitions-for-fsm/states (all-states all-fsm/states all-transitions)
+(defun set-transitions-for-states (all-states all-fsm/states all-transitions)
   (labels ((find-events/transition-originating-from-state (state)
 	     (group-by:group-by (remove-if-not
 				 #'(lambda (tr)
-				     (state-described-by-name state (initial-state-name tr)))
+				     (chart::state-described-by-name
+				      state (chart::initial-state-name tr)))
 				 all-transitions)
-				:key #'event-name :value #'identity)))
+				:key #'chart::event-name :value #'identity)))
     (iter 
       (for initial-state in all-states)
       ;; for every EVENT-NAME and TRANSITIONS* originating in INITIAL-STATE
       ;; find and set FINAL-STATE when applying TRANSITIONS* to INITIAL-STATE
       (iter
-	(for (event-name . transitions) in (find-events/transition-originating-from-state initial-state))
+	(for (event-name . transitions)
+	     in (find-events/transition-originating-from-state initial-state))
 	(when transitions
 	  (for combined-by-guards = (combine-trans-by-guards transitions))
 	  (iter
 	    (for transitions in combined-by-guards)
-	    (set-fsm/transition-target initial-state event-name transitions all-fsm/states all-states)))))))
+	    (set-transition-target initial-state event-name transitions all-fsm/states all-states)))))))
 
 
 
