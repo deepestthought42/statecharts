@@ -74,6 +74,11 @@
 	:initform (error "Need to initialize FUN."))))
 
 
+(defgeneric clause-function (clause)
+  (:method ((clause transition-clause)) (constantly t))
+  (:method ((clause guard-clause)) (fun clause)))
+
+
 (sc::define-copy-object-method (transition-clause) final-state)
 (sc::define-copy-object-method (otherwise-clause) final-state)
 (sc::define-copy-object-method (guard-clause) final-state code fun)
@@ -154,10 +159,10 @@
   (format stream "~a" (name::name (final-state obj))))
 
 (defmethod sc::%print-object ((obj otherwise-clause) stream)
-  (format stream "(otherwise -> ~a)" (name::name (final-state obj))))
+  (format stream "otherwise -> ~a)" (name::name (final-state obj))))
 
 (defmethod sc::%print-object ((obj guard-clause) stream)
-  (format stream "(if ~a -> ~a)"
+  (format stream "~a -> ~a"
 	  (code obj)
 	  (name::name (final-state obj))))
 

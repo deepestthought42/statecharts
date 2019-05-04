@@ -67,10 +67,6 @@
 	    :initform (error "Need to initialize CLAUSES."))))
 
 
-(defgeneric guardedp (clause)
-  (:method (clause) nil)
-  (:method ((clause guard-clause)) t)
-  (:method ((clause otherwise-clause)) nil))
 
 ;;; printing
 
@@ -78,10 +74,16 @@
   (print-unreadable-object (obj stream)
     (sc::%print-object (initial-state-name obj) stream)
     (format stream " --|~a|--> " (event-name obj))
-    (mapcar #'(lambda (g)
-		(format stream "~t")
-		(sc::%print-object g stream))
-	    (clauses obj))))
+    (cond
+      ((and (> (length (clauses obj)) 1))
+       (format stream "[cond")
+       (iter
+	 (for g in (clauses obj))
+	 (if-first-time nil (format stream " | "))
+	 (sc::%print-object (dsl::final-state g) stream))
+       (format stream " ]"))
+      (t (sc::%print-object (dsl::final-state
+			     (first (clauses obj))) stream)))))
 
 
 (defmethod print-object ((obj s) stream)
@@ -160,10 +162,10 @@
       ;; name and state-name have to match as well as the type of state-name
       ((not (state=state-name s state-name)) nil)
       ;; the state-name doesn't specify any substates, so all good
-      ((not (sub-states state-name)) t)
+      ((not (name::sub-states state-name)) t)
       ;; name matches and we have substates, so compare them one be one
       (t (reduce #'(lambda (a b) (and a b))
-		 (sub-states state-name)
+		 (name::sub-states state-name)
 		 :key #'is-sub-state)))))
 
 
@@ -188,24 +190,26 @@
     ;; the name matches but doesn't specify any sub-states -> return technically, this
     ;; doesn't make any sense but for determining which state is reentered it might be
     ;; useful
-    ((not (sub-state state-name)) (copy-state state :sub-state nil))
+    ((not (name::sub-state state-name)) (copy-state state :sub-state nil))
     ;; the name still matches and specifies sub-states -> test substate
     (t (copy-state state :sub-state
-		   (remove-implicit-substates (sub-state state) (sub-state state-name))))))
+		   (remove-implicit-substates (sub-state state)
+					      (name::sub-state state-name))))))
 
 
 (defmethod remove-implicit-substates ((state s-and) state-name)
   (check-state-name state state-name)
   (cond
     ;; the state-name doesn't specify any substates, so return nil
-    ((not (sub-states state-name)) (copy-state state :sub-states nil))
+    ((not (name::sub-states state-name)) (copy-state state :sub-states nil))
     ;; name matches and we have substates, so return only
     ;; the ones given in state-name
     (t
      (copy-state state :sub-states
 		 (iter
-		   (for sn in (sub-states state-name))
-		   (for s = (find (name sn) (sub-states state) :test #'string= :key #'name))
+		   (for sn in (name::sub-states state-name))
+		   (for s = (find (name::name sn) (sub-states state)
+				  :test #'string= :key #'name))
 		   (when (not s) (error "Couldn't find substate with name: ~a" sn))
 		   (for explicit = (remove-implicit-substates s sn))
 		   (when explicit (collect explicit)))))))

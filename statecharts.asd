@@ -2,7 +2,7 @@
 
 (asdf:defsystem #:statecharts
   :description "Lisp implementation of statecharts"
-  :author "R. Klaitter <klawitterrenee@gmail.com>"
+  :author "R. Klawitter <klawitterrenee@gmail.com>"
   :version "0.0.1"
   :license "Apache 2.0"
   :depends-on (#:iterate
@@ -18,8 +18,8 @@
   :components ((:file "package")
 	       (:file "utils")
 	       (:file "api")
-	       (:file "dsl-objects")
-	       (:file "state-name-objects")	       
+	       (:file "state-name-objects")
+	       (:file "dsl-objects")	       
 	       (:file "chart-objects")
 	       (:file "fsm-objects")
 	       (:file "state-name-compute")

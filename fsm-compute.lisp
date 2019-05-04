@@ -59,14 +59,15 @@
 	  (cond ((not transitions)
 		 (error "No transitions found for initial state: ~a ?" initial-state))
 		((= (length transitions) 1)
-		 (values (chart::initial-state-name (first transitions))
-			 (chart::final-state-name (first transitions))))
+		 (values (fsm::initial-state-name (first transitions))
+			 (fsm::final-state-name (first transitions))))
 		(t
-		 (values (reduce #'name::join (mapcar #'chart::initial-state-name transitions))
-			 (reduce #'name::join (mapcar #'chart::final-state-name transitions))))))
+		 (values (reduce #'name::join (mapcar #'fsm::initial-state-name transitions))
+			 (reduce #'name::join (mapcar #'fsm::final-state-name transitions))))))
 	 ;; try finding states that are described by TRANS-FINAL-STATE-NAME
 	 (possible-final-state-names
-	  (alexandria:if-let (tfsn (chart::get-states-described-by-name all-states trans-final-state-name))
+ 	  (alexandria:if-let (tfsn (chart::get-states-described-by-name
+				    all-states trans-final-state-name))
 	    tfsn (error "Couldn't find states described by final-state: ~a of transition: ~a"
 			trans-final-state-name trans-final-state-name)))
 	 ;; since we work on state-names, create one for INITIAL-STATE
@@ -111,9 +112,10 @@
 
 (defun get-reentry-actions (final-state transitions)
   (let+ ((states-with-reentry-actions
-	  (mapcar #'chart::initial-state-name
+	  (mapcar #'fsm::initial-state-name
 		  (remove-if #'not transitions
-			     :key #'(lambda (tr) (name::state= (initial-name tr) (final-name tr))))))
+			     :key #'(lambda (tr) (name::state= (fsm::initial-state-name tr)
+							  (fsm::final-state-name tr))))))
 	 (joined-reentry-state (if states-with-reentry-actions
 				   (reduce #'name::join states-with-reentry-actions)
 				   (return-from get-reentry-actions '())))
@@ -139,20 +141,20 @@
 		     :initial-name (name::from-chart-state initial-state)
 		     :final-name (name::from-chart-state final-state)
 		     :guards guards
-		     :fsm/state final-fsm/state)
+		     :state final-fsm/state)
       (make-instance 'target
 		     :on-entry-actions on-entry-actions
 		     :on-exit-actions on-exit-actions
 		     :on-reentry-actions on-reentry-actions
 		     :initial-name (name::from-chart-state initial-state)
 		     :final-name (name::from-chart-state final-state)
-		     :fsm/state final-fsm/state)))
+		     :state final-fsm/state)))
 
 (defun set-transition-target (initial-state event-name combined-transitions all-fsm/states all-states)
   (let+ ((initial-fsm/state (find-state-for initial-state all-fsm/states))
 	 (final-state (determine-final-states all-states initial-state combined-transitions))
 	 (final-fsm/state (find-state-for final-state all-fsm/states))
-	 (guards (mapcar #'guards combined-transitions))
+	 (guards (mapcar #'clause combined-transitions))
 	 ((&values on-exit-actions on-entry-actions)
 	  (determine-entry/exit-actions initial-state final-state))
 	 ;; assuming that
@@ -182,26 +184,24 @@
 
 
 
-(defun combine-trans-by-guards (transitions)
-  "Given TRANSITIONS, combine TRANSITIONS guards such that:
-
-∀Aₙ ∈ {guards(TRANSITIONS)}: ∀Aₙ₋₁ ∈ {guards(TRANSITIONS)\Aₙ}: ... A₁: Aₙ∪...∪A₁
-
-and return a set of the set of combined transitions with final states of the transition
-determined by the guards. "
-  (iter
-    (for tr in transitions)
-    (for g = (chart::clauses tr))
-    (if (chart::guardedp g)
-	(collect tr into guarded)
-	(collect tr into unguarded))
-    (finally
-     (return
-       (if guarded
-	   (mapcar #'(lambda (cg)
-		       (append unguarded cg))
-		   (combine-sets guarded))
-	   (list unguarded))))))
+ (defun combine-trans-by-guards (transitions)
+  ""
+  (let+ (({c.tr}* (mapcar #'(lambda (tr) (mapcar #'(lambda (c) (cons c tr)) (chart::clauses tr)))
+			  transitions))
+	 
+   	 (combined-{c.tr}* (combine-sets {c.tr}*)))
+    (mapcar #'(lambda ({c.tr}*)
+		(mapcar #'(lambda (c.tr)
+			    (let+ (((c . tr) c.tr)
+				   ((&slots chart::initial-state-name chart::event-name) tr)
+				   ((&slots dsl::final-state) c))
+			      (make-instance 'fsm::transition
+					     :initial-state-name chart::initial-state-name
+					     :final-state-name  dsl::final-state
+					     :event-name chart::event-name
+					     :clause c)))
+			{c.tr}*))
+	    combined-{c.tr}*)))
 
 
 

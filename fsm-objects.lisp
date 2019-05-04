@@ -19,6 +19,15 @@
     (sc::%print-object (name obj) stream)))
 
 
+(defclass transition ()
+  ((initial-state-name :initarg :initial-state-name :accessor initial-state-name 
+		       :initform (error "Must initialize initial-state-name."))
+   (final-state-name :accessor final-state-name :initarg :final-state-name
+		     :initform (error "Need to initialize FINAL-STATE-NAME."))
+   (event-name :initarg :event-name :accessor event-name 
+	       :initform (error "Must initialize event-state-name."))
+   (clause :accessor clause :initarg :clause
+	   :initform (error "Need to initialize CLAUSE."))))
 
 (defclass target ()
   ((on-entry-actions :initarg :on-entry-actions :accessor on-entry-actions
