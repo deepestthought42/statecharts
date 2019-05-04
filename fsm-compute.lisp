@@ -132,16 +132,19 @@
 
 
 (defun make-fsm/target (on-entry-actions on-exit-actions on-reentry-actions
-			initial-state final-state guards final-fsm/state)
-  (if guards
+			initial-state final-state clauses final-fsm/state)
+  (if (and clauses
+	   (or (> (length clauses) 1)
+	       (typep (car clauses)
+		      'chart::guard-clause)))
       (make-instance 'guarded-target
 		     :on-entry-actions on-entry-actions
 		     :on-exit-actions on-exit-actions
 		     :on-reentry-actions on-reentry-actions
 		     :initial-name (name::from-chart-state initial-state)
 		     :final-name (name::from-chart-state final-state)
-		     :guards guards
-		     :state final-fsm/state)
+ 		     :clauses clauses
+ 		     :state final-fsm/state)
       (make-instance 'target
 		     :on-entry-actions on-entry-actions
 		     :on-exit-actions on-exit-actions
@@ -154,17 +157,19 @@
   (let+ ((initial-fsm/state (find-state-for initial-state all-fsm/states))
 	 (final-state (determine-final-states all-states initial-state combined-transitions))
 	 (final-fsm/state (find-state-for final-state all-fsm/states))
-	 (guards (mapcar #'clause combined-transitions))
+	 (clauses (mapcar #'clause combined-transitions))
 	 ((&values on-exit-actions on-entry-actions)
 	  (determine-entry/exit-actions initial-state final-state))
 	 ;; assuming that
 	 (on-reentry-actions (get-reentry-actions final-state combined-transitions))
 	 (target (make-fsm/target on-entry-actions on-exit-actions on-reentry-actions
-			      initial-state final-state guards final-fsm/state))
-	 (target* (cdr (assoc event-name (ev->state initial-fsm/state)))))
+				  initial-state final-state clauses final-fsm/state))
+ 	 (target* (assoc event-name (ev->state initial-fsm/state))))
     (if target*
-	(setf  target* (append target* (list target)))
-	(push (list event-name target) (ev->state initial-fsm/state)))))
+	(setf (cdr target*) (append (cdr target*) (list target)))
+	(push (cons event-name (list target)) (ev->state initial-fsm/state)))))
+
+
 
 (defun combine-sets (sets)
   (cond

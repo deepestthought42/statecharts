@@ -59,8 +59,6 @@
 (defclass transition ()
   ((initial-state-name :initarg :initial-state-name :accessor initial-state-name 
 		       :initform (error "Must initialize initial-state-name."))
-   (transition-group-id :accessor transition-group-id :initarg :transition-group-id
-			:initform (error "Need to initialize TRANSITION-GROUP-ID."))
    (event-name :initarg :event-name :accessor event-name 
 	       :initform (error "Must initialize event-state-name."))
    (clauses :accessor clauses :initarg :clauses

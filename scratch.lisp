@@ -167,45 +167,38 @@
       (sc:s "b")
       (sc:-> "ev" "a" "a")
       (sc:-> "ev" "b" "a"))
-
     (sc:c "fucker upper" (sc:d "a")
       (sc:s "a")
       (sc:s "b" :reentry (act (e) (format t "reentry fucker~%")))
       (sc:-> "ev" "a" "b")
       (sc:-> "ev" "b" "b"))))
 
-(defclass test-env (environment)
+(defclass test-env (fsm:environment)
   ((counter :accessor counter :initarg :counter
 	    :initform 0)))
 
 (defstatechart (sc/test)
   (sc:c "test" (sc:d "a")
     (sc:s "a" :reentry (act (e)
-			 (format t "reentry~%")
-			 (incf (counter e)))
+			 (incf (counter e))
+			 (format t "reentry, counter: ~D ~%" (counter e)))
 	      :exit (act (e) (setf (counter e) 0)))
     (sc:s "b")
-    (sc:-> "ev" "a" (cond (e)
-			  ((> (counter e) 2) "b")
-			  (otherwise "a")))
-    (sc:-> "ev" "b" "a")))
+    (sc:s "c")
+    (sc:-> "ev" "a"
+	   (cond (e)
+		 ((>= (counter e) 2) "b")
+		 (otherwise "a")))
+    (sc:-> "ev" "b" "c")
+    (sc:-> "ev" "c" "a")))
 
 
-
-
-
-
-
-
-
-
-
-
-
-(let ((env (make-instance 'environment :fsm (create-fsm-runtime sc/test :debug t))))
-  (signal-event env '|ev|)
-  (signal-event env '|ev|)
-  (signal-event env '|ev|))
+(let ((env (make-instance 'test-env :fsm (fsm::create-fsm-runtime sc/test :debug t))))
+  (fsm::signal-event env '|ev|)
+  (fsm::signal-event env '|ev|)
+  (fsm::signal-event env '|ev|)
+  (fsm::signal-event env '|ev|)
+  (fsm::signal-event env '|ev|))
 
 
 

@@ -87,7 +87,6 @@
       (collect
 	  (make-instance 'chart::transition :event-name (dsl::event-symbol el)
 					    :initial-state-name initial-state-name
-					    :transition-group-id (dsl::id el)
 					    :clauses clauses)))))
 
 

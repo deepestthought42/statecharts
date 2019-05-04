@@ -6,9 +6,9 @@
 		  :initform (error "Must initialize current-state."))
    (states :initarg :states :accessor states 
 	   :initform (error "Must initialize states."))
-   (default-state :initarg :default-state :accessor default-state 
+   (sc::default-state :initarg :default-state :accessor sc::default-state 
 		  :initform (error "Must initialize default-state."))
-   (events :initarg :events :accessor events 
+   (sc::events :initarg :events :accessor sc::events 
 	   :initform (error "Must initialize events."))
    (event-queue :accessor event-queue :initarg :event-queue)
    (processing :accessor processing :initarg :processing))
@@ -46,15 +46,16 @@
 	 (return-from %%signal-event current-state))
 	(t
 	 (iter
-	   (for target in (cdr ev/target*)) 
+	   (for target in (cdr ev/target*))
+	   ()
 	   (when (applicable target environment)
-	     (let+ (((&slots fsm/state on-exit-actions on-entry-actions on-reentry-actions) target))
+	     (let+ (((&slots state on-exit-actions on-entry-actions on-reentry-actions) target))
 	       (dbgout :signal-event "Leaving state: ~a" (name current-state))
 	       (execute-actions on-exit-actions :exit-actions) 
-	       (dbgout :signal-event "Entered state: ~a" (name current-state))
+	       (dbgout :signal-event "Entered state: ~a" (name state))
 	       (execute-actions on-entry-actions :entry-actions)
 	       (execute-actions on-reentry-actions :reentry-actions)
-	       (return fsm/state)))
+	       (return state)))
 	   (finally (return current-state))))))))
 
 
@@ -89,16 +90,16 @@
 
 
 (defun create-fsm-runtime (statechart &key debug)
-  (let+ (((&slots events fsm/states default-state) statechart)
-	 (default-fsm/state (find (name::from-chart-state default-state)
-				  fsm/states :test #'name::state=
+  (let+ (((&slots sc::events sc::fsm-states sc::default-state) statechart)
+	 (default-fsm/state (find (name::from-chart-state sc::default-state)
+				  sc::fsm-states :test #'name::state=
 				  :key #'name)))
     (if (not default-fsm/state)
-	(error "Huh ? Couldn't find default state: ~a ?" default-state))
+	(error "Huh ? Couldn't find default state: ~a ?" sc::default-state))
     (make-instance (if debug
 		       'debug-statecharts-runtime-fsm
 		       'statecharts-runtime-fsm)
 		   :default-state default-fsm/state
-		   :states fsm/states
+		   :states sc::fsm-states
 		   :current-state default-fsm/state
-		   :events events)))
+		   :events sc::events)))

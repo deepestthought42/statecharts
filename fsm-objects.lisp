@@ -49,14 +49,14 @@
 
 
 (defclass guarded-target (target)
-  ((guards :accessor guards :initarg :guards
-	   :initform (error "Need to initialize GUARDS."))))
+  ((clauses :accessor clauses :initarg :clauses
+	    :initform (error "Need to initialize CLAUSES."))))
 
-#+nil
+
 (defmethod applicable ((target guarded-target) environment)
   (iter
-    (for g in (guards target))
-    (when (not (applicable g environment))
+    (for g in (clauses target))
+    (when (not (dsl::applicable g environment))
       (return nil))
     (finally (return t))))
 
