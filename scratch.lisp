@@ -51,13 +51,13 @@
 	      ("X" "B")))))
 
 
-(join-state-names (name::from-description '("H" "G" ("Z" "C")) (root test-1))
-		  (name::from-description '("H" "G" ("Z" "A")) (root test-1)))
+(join-state-names (sc.key::from-description '("H" "G" ("Z" "C")) (root test-1))
+		  (sc.key::from-description '("H" "G" ("Z" "A")) (root test-1)))
 
 
 
-(name::state= (name::from-description '("H" "G" ("Z" "C")) (root test-1))
-	     (name::from-description '("H" "G" ("Z" "C")) (root test-1)))
+(sc.key::state= (sc.key::from-description '("H" "G" ("Z" "C")) (root test-1))
+	     (sc.key::from-description '("H" "G" ("Z" "C")) (root test-1)))
 
 
 
@@ -71,7 +71,7 @@
 					       (states test-1)))))
 
 
-(let ((name (name::from-description '("H" "G" ("X" "A") ("Y" "B")) (root test-1))))
+(let ((name (sc.key::from-description '("H" "G" ("X" "A") ("Y" "B")) (root test-1))))
   (get-partial-default-state (states test-1) name))
 
 
@@ -104,7 +104,7 @@
 
 
 
-(fsm::create-states (states test-states))
+(sc.fsm::create-states (states test-states))
 
 
 
@@ -151,8 +151,8 @@
 
 (create-fsm-runtime test-states-2)
 
-(difference-state-names (name::from-description '("G" "Z" "A") (root test-states))
-			(name::from-description '("G" "Z" "B") (root test-states)))
+(difference-state-names (sc.key::from-description '("G" "Z" "A") (root test-states))
+			(sc.key::from-description '("G" "Z" "B") (root test-states)))
 
 
 
@@ -173,7 +173,7 @@
       (sc:-> "ev" "a" "b")
       (sc:-> "ev" "b" "b"))))
 
-(defclass test-env (fsm:environment)
+(defclass test-env (environment)
   ((counter :accessor counter :initarg :counter
 	    :initform 0)))
 
@@ -193,12 +193,12 @@
     (sc:-> "ev" "c" "a")))
 
 
-(let ((env (make-instance 'test-env :fsm (fsm::create-fsm-runtime sc/test :debug t))))
-  (fsm::signal-event env '|ev|)
-  (fsm::signal-event env '|ev|)
-  (fsm::signal-event env '|ev|)
-  (fsm::signal-event env '|ev|)
-  (fsm::signal-event env '|ev|))
+(let ((env (make-instance 'test-env :fsm (sc:create-fsm-runtime sc/test :debug t))))
+  (sc:signal-event env '|ev|)
+  (sc:signal-event env '|ev|)
+  (sc:signal-event env '|ev|)
+  (sc:signal-event env '|ev|)
+  (sc:signal-event env '|ev|))
 
 
 

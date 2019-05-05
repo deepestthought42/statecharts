@@ -1,5 +1,8 @@
-(in-package #:statecharts)
+(defpackage #:statecharts.uml
+  (:use #:cl #:iterate #:let-plus #:trivia #:sc.cond)
+  (:nicknames #:sc.uml))
 
+(in-package #:statecharts)
 
 
 (defparameter *indentation-step* 2)
@@ -14,27 +17,27 @@
     (:method ((s t) stream &key indent)
       (declare (ignore s stream indent))))
 
-  (defmethod nodes ((s dsl::state) stream &key (indent 0))
-    (f "state \"~a\" as s~D~%" (name s) (dsl::id s)))
+  (defmethod nodes ((s sc.dsl::state) stream &key (indent 0))
+    (f "state \"~a\" as s~D~%" (sc.dsl::name s) (sc.dsl::id s)))
   
-  (defmethod nodes ((s dsl::cluster) stream &key (indent 0))
+  (defmethod nodes ((s sc.dsl::cluster) stream &key (indent 0))
     (labels ((find-default ()
-	       (alexandria:if-let (def (find (dsl::default-state s)
-					     (dsl::elements s)
-					     :key #'name))
-		 (dsl::id def)
+	       (alexandria:if-let (def (find (sc.dsl::default-state s)
+					     (sc.dsl::elements s)
+					     :key #'sc.dsl::name))
+		 (sc.dsl::id def)
 		 (error "Couldn't find default state."))))
-      (f "state \"~a\" as s~D {~%" (name s) (dsl::id s))
+      (f "state \"~a\" as s~D {~%" (sc.dsl::name s) (sc.dsl::id s))
       (f "[*] --> s~D~%" (find-default))
       (iter
-	(for e in (dsl::elements s))
+	(for e in (sc.dsl::elements s))
 	(nodes e stream :indent (+ indent *indentation-step*)))
       (f "}~%")))
   
-  (defmethod nodes ((s dsl::orthogonal) stream &key (indent 0))
-    (f "state \"~a\" as s~D {~%" (name s) (dsl::id s))
+  (defmethod nodes ((s sc.dsl::orthogonal) stream &key (indent 0))
+    (f "state \"~a\" as s~D {~%" (sc.dsl::name s) (sc.dsl::id s))
     (iter
-      (with els = (dsl::elements s))
+      (with els = (sc.dsl::elements s))
       (for e in (subseq els 0 (1- (length els))))
       (nodes e stream :indent (+ indent *indentation-step*) )
       (f "||~%")
@@ -46,21 +49,22 @@
   
   (defgeneric edge (transition root stream &key indent))
 
-  (defmethod edge ((transition chart::transition) root stream &key (indent 0))
+  (defmethod edge ((transition sc.chart::transition) root stream &key (indent 0))
     (labels ((gid (state-name)
-	       (let ((chart-element (name::find-dsl-object state-name root)))
+	       (let ((chart-element (sc.key::find-dsl-object state-name root)))
 		 (if (not chart-element)
 		     (error "Couldn't find state with name: ~a" state-name))
-		 (format nil "s~D" (dsl::id chart-element)))))
+		 (format nil "s~D" (sc.dsl::id chart-element)))))
+      ;; fixme: this doesn't work anymore
       (f "~a --> ~a : ~a~%"
-	 (gid (chart::initial-state-name transition))
-	 (gid (chart::final-state-name transition))
-	 (event-name transition)))))
+	 (gid (sc.chart::initial-state-name transition))
+	 (gid (sc.chart::final-state-name transition)) ;
+	 (sc.chart::event-name transition)))))
 
 
 (defgeneric render-to-uml (root filename &key))
 
-(defmethod render-to-uml ((root dsl::state) filename
+(defmethod render-to-uml ((root sc.dsl::state) filename
 			  &key (if-exists :supersede))
   (with-open-file (stream filename
 			  :direction :output :if-exists if-exists)
@@ -69,7 +73,7 @@
     (format stream "hide empty description~%")
     (nodes root stream)
     (iter
-      (for tr in (chart::compute-transitions root '() root))
+      (for tr in (sc.chart::compute-transitions root '() root))
       (edge tr root stream))
     (format stream "@enduml~%")))
 

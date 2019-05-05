@@ -1,8 +1,14 @@
 ;;;; statecharts.lisp
 
 (defpackage #:statecharts.dsl
-  (:use #:cl #:iterate #:let-plus #:trivia)
-  (:nicknames #:dsl))
+  (:use #:cl #:iterate #:let-plus #:trivia #:sc.cond)
+  (:nicknames #:sc.dsl)
+  (:export #:->
+	   #:o
+	   #:c
+	   #:s
+	   #:d
+	   #:act))
 
 (in-package #:statecharts.dsl)
 
@@ -53,7 +59,7 @@
 	       ((stringp name) name)
 	       ((listp name) (format nil "~{~a~^::~}" name))
 	       (t (error "This should happen.")))))
-    (make-instance 'dsl::transition
+    (make-instance 'sc.dsl::transition
 		   :name (format nil "~a -> (~{~a~^,~})"
 				 (format-name initial-name)
 				 (mapcar #'(lambda (c) (format-name (final-state c))) clauses))
@@ -79,10 +85,9 @@
   (:method ((clause guard-clause)) (fun clause)))
 
 
-(sc::define-copy-object-method (transition-clause) final-state)
-(sc::define-copy-object-method (otherwise-clause) final-state)
-(sc::define-copy-object-method (guard-clause) final-state code fun)
-
+(sc.utils::define-copy-object-method (transition-clause) final-state)
+(sc.utils::define-copy-object-method (otherwise-clause) final-state)
+(sc.utils::define-copy-object-method (guard-clause) final-state code fun)
 
 (defgeneric applicable (target environment)
   (:method ((clause transition-clause) environment) t)
@@ -153,17 +158,17 @@
 
 (defmethod print-obect ((obj transition-clause) stream)
   (print-unreadable-object (obj stream)
-    (sc::%print-object obj stream)))
+    (sc.utils::%print-object obj stream)))
 
-(defmethod sc::%print-object ((obj transition-clause) stream)
-  (format stream "~a" (name::name (final-state obj))))
+(defmethod sc.utils::%print-object ((obj transition-clause) stream)
+  (format stream "~a" (sc.key::name (final-state obj))))
 
-(defmethod sc::%print-object ((obj otherwise-clause) stream)
-  (format stream "otherwise -> ~a)" (name::name (final-state obj))))
+(defmethod sc.utils::%print-object ((obj otherwise-clause) stream)
+  (format stream "otherwise -> ~a)" (sc.key::name (final-state obj))))
 
-(defmethod sc::%print-object ((obj guard-clause) stream)
+(defmethod sc.utils::%print-object ((obj guard-clause) stream)
   (format stream "~a -> ~a"
 	  (code obj)
-	  (name::name (final-state obj))))
+	  (sc.key::name (final-state obj))))
 
 

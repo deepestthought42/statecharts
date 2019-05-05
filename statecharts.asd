@@ -15,17 +15,18 @@
 		#:queues.simple-queue
 		#:fare-quasiquote-extras)
   :serial t
-  :components ((:file "package")
-	       (:file "utils")
-	       (:file "api")
+  :components ((:file "utils")
+	       (:file "conditions")
 	       (:file "state-name-objects")
 	       (:file "dsl-objects")	       
 	       (:file "chart-objects")
 	       (:file "fsm-objects")
+	       (:file "interface-objects")
 	       (:file "state-name-compute")
 	       (:file "chart-compute")
 	       (:file "dsl-definition")
 	       (:file "fsm-compute")
 	       (:file "fsm-runtime")
+	       (:file "interface")
 	       (:file "uml-output")))
 

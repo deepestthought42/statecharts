@@ -1,4 +1,5 @@
-(in-package #:statecharts)
+(in-package #:statecharts.dsl)
+
 
 
 
@@ -8,15 +9,15 @@
     ((guard (list (or 't 'otherwise) final-state)
 	    (or (typep final-state 'string)
 		(typep final-state 'symbol)))
-     `(make-instance 'statecharts.dsl::otherwise-clause :final-state ,final-state))
+     `(make-instance 'sc.dsl::otherwise-clause :final-state ,final-state))
     ((guard (list code final-state)
 	    (or (typep final-state 'string)
 		(typep final-state 'symbol)))
-     `(make-instance 'statecharts.dsl::guard-clause :final-state ,final-state
-						    :fun #'(lambda (,environment-symbol)
-							     (declare (ignorable ,environment-symbol))
-							     ,code)
-						    :code ',code))
+     `(make-instance 'sc.dsl::guard-clause :final-state ,final-state
+					   :fun #'(lambda (,environment-symbol)
+						    (declare (ignorable ,environment-symbol))
+						    ,code)
+					   :code ',code))
     (otherwise (error "Could not parse guard clause: ~a" clause))))
 
 
@@ -24,7 +25,7 @@
 (defun parse-final-state (final)
   (match final
     ((or (type string) (type symbol))
-     `(list (make-instance 'statecharts.dsl::transition-clause :final-state ,final)))
+     `(list (make-instance 'sc.dsl::transition-clause :final-state ,final)))
     ((cons (or 'cond 'guard) (cons (or (cons environment-symbol _) (list)) clauses))
      (if (not clauses)
 	 (error "Couldn't parse final state specification: ~a" final))
@@ -34,17 +35,6 @@
 
 
 
-(defun %check-defstatechart-arguments (name description definitions)
-  (declare (ignore definitions))
-  (cond
-    ((not (symbolp name))
-     (error 'invalid-chart-syntax
-	    :message "Name needs to be a symbol."
-	    :offending-code name))
-    ((not (stringp description))
-     (error 'invalid-chart-syntax
-	    :message "Description needs to be a string."
-	    :offending-code description))))
 
 
 ;;;; helper macros
@@ -52,11 +42,11 @@
   (ecase type
     (cluster
      `(let ((sub-states (list ,@sub-states)))
-	(if (not (find ,default-state sub-states :key #'dsl::name :test #'string=))
+	(if (not (find ,default-state sub-states :key #'sc.dsl::name :test #'string=))
 	    (error 'couldnt-find-default-state
 		   :default-state ,default-state
 		   :cluster ,name))
-	(make-instance 'statecharts.dsl::cluster :name ,name :description ,description
+	(make-instance 'sc.dsl::cluster :name ,name :description ,description
 						 :on-entry ,entry
 						 :on-exit ,exit
 						 :on-reentry ,reentry
@@ -64,7 +54,7 @@
 						 :default-state ,default-state
 						 :elements sub-states)))
     (orthogonal
-     `(make-instance 'statecharts.dsl::orthogonal :name ,name :description ,description
+     `(make-instance 'sc.dsl::orthogonal :name ,name :description ,description
 						  :on-entry ,entry
 						  :on-reentry ,reentry
 						  :on-exit ,exit
@@ -81,7 +71,7 @@ proceed if IF returns true.
 
 ==> TRANSITION"
   (let+ ((clauses (parse-final-state final)))
-    `(statecharts.dsl::make-transition ,initial ,event ,clauses)))
+    `(sc.dsl::make-transition ,initial ,event ,clauses)))
 
 
 (defmacro o (name (&key (description "") entry exit reentry) &body sub-states)
@@ -98,8 +88,8 @@ functions of one variable and will be called with the ENVIRONMENT as
 their parameter.
 
 => ORTHOGONAL"
-  `(sc::%superstate orthogonal ,name nil nil
-		    ,description ,entry ,exit ,reentry ,sub-states))
+  `(sc.dsl::%superstate orthogonal ,name nil nil
+			,description ,entry ,exit ,reentry ,sub-states))
 
 (defmacro c (name (state-selector default-state &key (description "")
 						     entry exit reentry)
@@ -118,8 +108,8 @@ functions of one variable and will be called with the ENVIRONMENT as
 their parameter.
 
 => CLUSTER"
-  `(sc::%superstate cluster ,name ,state-selector ,default-state
-		    ,description ,entry ,exit ,reentry ,sub-states))
+  `(sc.dsl::%superstate cluster ,name ,state-selector ,default-state
+			,description ,entry ,exit ,reentry ,sub-states))
 
 
 
@@ -133,7 +123,7 @@ NAME. EXIT and ENTRY a functions of one variable and will be called
 with the ENVIRONMENT as their parameter.
 
 => STATE"
-  `(make-instance 'statecharts.dsl::state
+  `(make-instance 'sc.dsl::state
 		  :name ,name :description ,description
 		  :on-entry ,entry
 		  :on-reentry ,reentry
@@ -141,50 +131,10 @@ with the ENVIRONMENT as their parameter.
 
 
 (defmacro act ((&optional (environment-symbol 'env)) &body code)
-  `(make-instance 'statecharts.dsl::action
+  `(make-instance 'sc.dsl::action
 		  :code ',code
 		  :fun #'(lambda (,environment-symbol)
 			   (declare (ignorable ,environment-symbol))
 			   ,@code)))
-
-
-(defclass statechart ()
-  ((name :accessor name :initarg :name :initform (error "Need to initialize NAME."))
-   (description :accessor description :initarg :description
-		:initform (error "Need to initialize DESCRIPTION."))
-   (events :accessor events :initarg :events :initform nil)
-   (root :accessor root :initarg :root :initform nil)
-   (states :accessor states :initarg :states :initform '())
-   (fsm-states :accessor fsm-states :initarg :fsm-states :initform '())
-   (default-state :accessor default-state :initarg :default-state :initform nil)
-   (transitions :accessor transitions :initarg :transitions :initform '())))
-
-(defun %create-state-chart (name root description)
-  (let* ((states (chart::compute-substates root))
-	 (transitions (chart::compute-transitions root '() root))
-	 (fsm-states (fsm::create-states states))
-	 (events (remove-duplicates (mapcar #'chart::event-name transitions)))
-	 (default-state (first (remove-if-not #'chart::is-default-state states))))
-    (fsm::set-transitions-for-states states fsm-states transitions)
-    (make-instance 'statecharts::statechart
-		   :name (string name)
-		   :description description
-		   :root root
-		   :states states
-		   :fsm-states fsm-states
-		   :transitions transitions
-		   :events events
-		   :default-state default-state)))
-
-
-(defmacro defstatechart ((name &key (description ""))
-			 &body definitions)
-  (%check-defstatechart-arguments name description definitions)
-  (dsl::clear-id)
-  `(defparameter ,name (%create-state-chart ',name
-					    (progn ,@definitions)
-					    ,description)))
-
-
 
 

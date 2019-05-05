@@ -1,5 +1,9 @@
-(in-package #:statecharts)
+(defpackage #:statecharts.utils
+  (:use #:cl #:iterate #:let-plus #:trivia)
+  (:nicknames #:sc.utils))
 
+
+(in-package #:sc.utils)
 
 
 (defmacro define-copy-object-method ((type &optional (method-name 'copy-object))
@@ -15,11 +19,14 @@
 	       ((type symbol) (alexandria:make-keyword s))
 	       (otherwise (error "Can't parse: ~a" s)))))
     (alexandria:with-gensyms (object)
-      `(defmethod ,method-name ((,object ,type)
-				&key ,@(mapcar #'(lambda (s) `(,(slot-name s) (slot-value ,object ',(slot-name s))))
-					slots-to-maybe-copy))
-	 (make-instance ',type ,@(alexandria:mappend #'(lambda (s) (list (init-arg s) (slot-name s)))
-						     slots-to-maybe-copy))))))
+      `(defmethod ,method-name
+	   ((,object ,type)
+	    &key ,@(mapcar #'(lambda (s)
+			       `(,(slot-name s) (slot-value ,object ' ,(slot-name s))))
+			   slots-to-maybe-copy))
+	 (make-instance ',type
+			,@(alexandria:mappend #'(lambda (s) (list (init-arg s) (slot-name s)))
+					      slots-to-maybe-copy))))))
 
 
 

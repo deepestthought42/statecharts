@@ -1,11 +1,13 @@
 (defpackage #:statecharts.fsm
-  (:use #:cl #:iterate #:let-plus)
-  (:nicknames #:fsm)
-  (:import-from dsl #:fun)
+  (:use #:cl #:iterate #:let-plus #:sc.cond)
+  (:nicknames #:sc.fsm)
+  (:import-from #:sc.dsl #:fun)
   (:export
-   #:environment))
+   #:environment
+   #:signal-event
+   #:create-fsm-runtime))
 
-(in-package #:fsm)
+(in-package #:sc.fsm)
 
 (defclass state ()
   ((name :initarg :name :accessor name 
@@ -16,7 +18,7 @@
 (defmethod print-object ((obj  state) stream)
   (print-unreadable-object (obj stream)
     (format stream " state w/name: ")
-    (sc::%print-object (name obj) stream)))
+    (sc.utils::%print-object (name obj) stream)))
 
 
 (defclass transition ()
@@ -56,7 +58,7 @@
 (defmethod applicable ((target guarded-target) environment)
   (iter
     (for g in (clauses target))
-    (when (not (dsl::applicable g environment))
+    (when (not (sc.dsl::applicable g environment))
       (return nil))
     (finally (return t))))
 

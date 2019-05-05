@@ -1,14 +1,14 @@
-(in-package #:fsm)
+(in-package #:sc.fsm)
 
 
 (defun create-states (states)
   (iter
     (for s in states)
-    (collect (make-instance 'fsm::state :name (name::from-chart-state s)))))
+    (collect (make-instance 'sc.fsm::state :name (sc.key::from-chart-state s)))))
 
 (defun find-state-for (state all-fsm/states)
-  (alexandria:if-let (ret (find (name::from-chart-state state) all-fsm/states
-				:key #'name :test #'name::state=))
+  (alexandria:if-let (ret (find (sc.key::from-chart-state state) all-fsm/states
+				:key #'name :test #'sc.key::state=))
     ret (error "Huh ? couldn't find fsm state for state: ~a" state)))
 
 
@@ -17,14 +17,14 @@
   (if (listp ob) ob (list ob)))
 
 (defgeneric recursive-accumulation (s accessor)
-  (:method ((s chart::s) accessor)
+  (:method ((s sc.chart::s) accessor)
     (enclose-in-list-if-necessary (funcall accessor s)))
-  (:method ((s chart::s-xor) accessor)
+  (:method ((s sc.chart::s-xor) accessor)
     (append (enclose-in-list-if-necessary (funcall accessor s))
-	    (recursive-accumulation (chart::sub-state s) accessor)))
-  (:method ((s chart::s-and) accessor)
+	    (recursive-accumulation (sc.chart::sub-state s) accessor)))
+  (:method ((s sc.chart::s-and) accessor)
     (append (enclose-in-list-if-necessary (funcall accessor s))
-	    (alexandria:mappend #'(lambda (s) (recursive-accumulation s accessor)) (chart::sub-states s)))))
+	    (alexandria:mappend #'(lambda (s) (recursive-accumulation s accessor)) (sc.chart::sub-states s)))))
 
 
 
@@ -40,9 +40,9 @@
 				 states)))
     (let+ (((&values in-initial-but-not-final
 		     in-final-but-not-initial)
-	    (name::difference initial final)))
-      (values (acc in-initial-but-not-final #'dsl::on-exit)
-	      (acc in-final-but-not-initial #'dsl::on-entry)))))
+	    (sc.key::difference initial final)))
+      (values (acc in-initial-but-not-final #'sc.dsl::on-exit)
+	      (acc in-final-but-not-initial #'sc.dsl::on-entry)))))
 
 
 
@@ -59,23 +59,23 @@
 	  (cond ((not transitions)
 		 (error "No transitions found for initial state: ~a ?" initial-state))
 		((= (length transitions) 1)
-		 (values (fsm::initial-state-name (first transitions))
-			 (fsm::final-state-name (first transitions))))
+		 (values (sc.fsm::initial-state-name (first transitions))
+			 (sc.fsm::final-state-name (first transitions))))
 		(t
-		 (values (reduce #'name::join (mapcar #'fsm::initial-state-name transitions))
-			 (reduce #'name::join (mapcar #'fsm::final-state-name transitions))))))
+		 (values (reduce #'sc.key::join (mapcar #'sc.fsm::initial-state-name transitions))
+			 (reduce #'sc.key::join (mapcar #'sc.fsm::final-state-name transitions))))))
 	 ;; try finding states that are described by TRANS-FINAL-STATE-NAME
 	 (possible-final-state-names
- 	  (alexandria:if-let (tfsn (chart::get-states-described-by-name
+ 	  (alexandria:if-let (tfsn (sc.chart::get-states-described-by-name
 				    all-states trans-final-state-name))
 	    tfsn (error "Couldn't find states described by final-state: ~a of transition: ~a"
 			trans-final-state-name trans-final-state-name)))
 	 ;; since we work on state-names, create one for INITIAL-STATE
-	 (full-initial-state-name (name::from-chart-state initial-state))
+	 (full-initial-state-name (sc.key::from-chart-state initial-state))
 	 ;; calculate the states that are defined in the current state (as given by
 	 ;; FULL-INITIAL-STATE-NAME) but are not described by the initial-state of
 	 ;; TRANSITIONS
-	 (in-current-state-but-not-trans (name::difference full-initial-state-name
+	 (in-current-state-but-not-trans (sc.key::difference full-initial-state-name
 							   trans-init-state-name))
 	 ;; select FINAL-STATES from possible states such that orthogonal states not
 	 ;; affected by TRANSITIONS stay the same 
@@ -86,7 +86,7 @@
 	    ;;
 	    ;; if that is the case, all states described by the final-state-name from
 	    ;; TRANSITIONS are possible
-	    ((and in-current-state-but-not-trans (name::state= in-current-state-but-not-trans
+	    ((and in-current-state-but-not-trans (sc.key::state= in-current-state-but-not-trans
 							      full-initial-state-name))
 	     possible-final-state-names)
 	    ;; when we have orthogonal states not described by TRANSITIONS, e.g.:
@@ -94,7 +94,7 @@
 	    ;; ("A" ("A" "A")^("B" "A")) with transition defined as ("A" ("A" "A")) ->
 	    ;; ("A" ("A" "B"))
 	    
-	    (in-current-state-but-not-trans (chart::get-states-described-by-name possible-final-state-names
+	    (in-current-state-but-not-trans (sc.chart::get-states-described-by-name possible-final-state-names
 										 in-current-state-but-not-trans))
 	    ;; no orthogonal states involved
 	    (t possible-final-state-names))))
@@ -102,7 +102,7 @@
       ((not final-states) (error "Couldn't find final state ?"))
       ;; final states not completely specified, need to select default state
       ((> (length final-states) 1)
-       (let ((final-from-partial (chart::get-partial-default-state final-states trans-final-state-name)))
+       (let ((final-from-partial (sc.chart::get-partial-default-state final-states trans-final-state-name)))
 	 (unless final-from-partial
 	   (error "Couldn't determine default states for final states."))
 	 final-from-partial))
@@ -112,15 +112,15 @@
 
 (defun get-reentry-actions (final-state transitions)
   (let+ ((states-with-reentry-actions
-	  (mapcar #'fsm::initial-state-name
+	  (mapcar #'sc.fsm::initial-state-name
 		  (remove-if #'not transitions
-			     :key #'(lambda (tr) (name::state= (fsm::initial-state-name tr)
-							  (fsm::final-state-name tr))))))
+			     :key #'(lambda (tr) (sc.key::state= (sc.fsm::initial-state-name tr)
+							  (sc.fsm::final-state-name tr))))))
 	 (joined-reentry-state (if states-with-reentry-actions
-				   (reduce #'name::join states-with-reentry-actions)
+				   (reduce #'sc.key::join states-with-reentry-actions)
 				   (return-from get-reentry-actions '())))
-	 (explicit-state (chart::remove-implicit-substates final-state joined-reentry-state)))
-    (remove-if #'not (recursive-accumulation explicit-state #'chart::on-reentry))))
+	 (explicit-state (sc.chart::remove-implicit-substates final-state joined-reentry-state)))
+    (remove-if #'not (recursive-accumulation explicit-state #'sc.chart::on-reentry))))
 
 
 
@@ -136,21 +136,21 @@
   (if (and clauses
 	   (or (> (length clauses) 1)
 	       (typep (car clauses)
-		      'chart::guard-clause)))
+		      'sc.chart::guard-clause)))
       (make-instance 'guarded-target
 		     :on-entry-actions on-entry-actions
 		     :on-exit-actions on-exit-actions
 		     :on-reentry-actions on-reentry-actions
-		     :initial-name (name::from-chart-state initial-state)
-		     :final-name (name::from-chart-state final-state)
+		     :initial-name (sc.key::from-chart-state initial-state)
+		     :final-name (sc.key::from-chart-state final-state)
  		     :clauses clauses
  		     :state final-fsm/state)
       (make-instance 'target
 		     :on-entry-actions on-entry-actions
 		     :on-exit-actions on-exit-actions
 		     :on-reentry-actions on-reentry-actions
-		     :initial-name (name::from-chart-state initial-state)
-		     :final-name (name::from-chart-state final-state)
+		     :initial-name (sc.key::from-chart-state initial-state)
+		     :final-name (sc.key::from-chart-state final-state)
 		     :state final-fsm/state)))
 
 (defun set-transition-target (initial-state event-name combined-transitions all-fsm/states all-states)
@@ -191,19 +191,19 @@
 
  (defun combine-trans-by-guards (transitions)
   ""
-  (let+ (({c.tr}* (mapcar #'(lambda (tr) (mapcar #'(lambda (c) (cons c tr)) (chart::clauses tr)))
+  (let+ (({c.tr}* (mapcar #'(lambda (tr) (mapcar #'(lambda (c) (cons c tr)) (sc.chart::clauses tr)))
 			  transitions))
 	 
    	 (combined-{c.tr}* (combine-sets {c.tr}*)))
     (mapcar #'(lambda ({c.tr}*)
 		(mapcar #'(lambda (c.tr)
 			    (let+ (((c . tr) c.tr)
-				   ((&slots chart::initial-state-name chart::event-name) tr)
-				   ((&slots dsl::final-state) c))
-			      (make-instance 'fsm::transition
-					     :initial-state-name chart::initial-state-name
-					     :final-state-name  dsl::final-state
-					     :event-name chart::event-name
+				   ((&slots sc.chart::initial-state-name sc.chart::event-name) tr)
+				   ((&slots sc.dsl::final-state) c))
+			      (make-instance 'sc.fsm::transition
+					     :initial-state-name sc.chart::initial-state-name
+					     :final-state-name  sc.dsl::final-state
+					     :event-name sc.chart::event-name
 					     :clause c)))
 			{c.tr}*))
 	    combined-{c.tr}*)))
@@ -215,10 +215,10 @@
   (labels ((find-events/transition-originating-from-state (state)
 	     (group-by:group-by (remove-if-not
 				 #'(lambda (tr)
-				     (chart::state-described-by-name
-				      state (chart::initial-state-name tr)))
+				     (sc.chart::state-described-by-name
+				      state (sc.chart::initial-state-name tr)))
 				 all-transitions)
-				:key #'chart::event-name :value #'identity)))
+				:key #'sc.chart::event-name :value #'identity)))
     (iter 
       (for initial-state in all-states)
       ;; for every EVENT-NAME and TRANSITIONS* originating in INITIAL-STATE

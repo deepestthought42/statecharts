@@ -14,12 +14,12 @@
 
 (defun from-description (state-description dsl-element &optional super-state)
   (labels ((throw-invalid (reason &rest args)
-	     (error 'sc::invalid-state-descriptor :descriptor state-description
-						  :reason (apply #'format nil reason args)))
-	   (state-p (obj) (typep obj 'dsl::state))
+	     (error 'invalid-state-descriptor :descriptor state-description
+					      :reason (apply #'format nil reason args)))
+	   (state-p (obj) (typep obj 'sc.dsl::state))
 	   (find-element (state elements)
 	     (alexandria:if-let (sub-s (find state (remove-if-not #'state-p elements)
-					     :key #'dsl::name
+					     :key #'sc.dsl::name
 					     :test #'string=))
 	       sub-s (throw-invalid "Could not find state with name: ~a" state)))
 	   (make-and (state %element states-description)
@@ -33,13 +33,13 @@
 				       ((not (stringp s-name))
 					(throw-invalid "State name not a string: ~a" s-name))
 				       (t (collect (%make-state-name
-						    sub-state (find-element s-name (dsl::elements %element))))))))
+						    sub-state (find-element s-name (sc.dsl::elements %element))))))))
 				  ;; direct sub-state
 				  ((stringp (first states-description))
 				   (list (%make-state-name
 					  states-description
 					  (find-element (first states-description)
-							(dsl::elements %element)))))))
+							(sc.dsl::elements %element)))))))
 		    (no-duplicates (remove-duplicates sub-states :test #'string= :key #'name)))
 	       (if (not (= (length sub-states)
 			   (length no-duplicates)))
@@ -51,14 +51,14 @@
 	       (cond
 		 ((not %state-description) nil)
 		 ((not (and (stringp state)
-			    (string= state (dsl::name %element))))
+			    (string= state (sc.dsl::name %element))))
 		  (throw-invalid "Unknown or invalid state name: ~a" state))
 		 ;; orthogonal cluster
-		 ((and (typep %element 'dsl::orthogonal))
+		 ((and (typep %element 'sc.dsl::orthogonal))
 		  (make-and state %element rest))
 		 ;; cluster state
-		 ((and (typep %element 'dsl::cluster)
-		       (not (typep %element 'dsl::orthogonal)))
+		 ((and (typep %element 'sc.dsl::cluster)
+		       (not (typep %element 'sc.dsl::orthogonal)))
 		  (make-instance 'or-state
 				 :name state
 				 :sub-state
@@ -66,24 +66,24 @@
 				   ((not (first rest)) nil)
 				   ((stringp (first rest))
 				    (%make-state-name rest (find-element (first rest)
-									 (dsl::elements %element))))
-				   (t (throw-invalid "Invalid state syntax: ~a" (first rest)))))) 
+									 (sc.dsl::elements %element))))
+				   (t (throw-invalid "Invalid state syntax: ~a" (first rest))))))
 		 ;; leaf state
-		 ((and (typep %element 'dsl::state)
-		       (not (typep %element 'dsl::cluster)))
+		 ((and (typep %element 'sc.dsl::state)
+		       (not (typep %element 'sc.dsl::cluster)))
 		  (make-instance 'state :name state))
-		 ;; 
+		 ;;
 		 (t (throw-invalid "Couldn't parse key: ~a" %state-description))))))
     (cond
       ((and (listp state-description)
 	    (equal (first state-description) :/))
-       (%make-state-name (rest state-description)  dsl-element))
+       (%make-state-name (rest state-description) dsl-element))
       ((and super-state (listp state-description))
-       (%make-state-name (append super-state state-description)  dsl-element))
+       (%make-state-name (append super-state state-description) dsl-element))
       ((listp state-description)
-       (%make-state-name (append super-state state-description)  dsl-element))
+       (%make-state-name (append super-state state-description) dsl-element))
       (t
-       (%make-state-name (append super-state (list state-description))  dsl-element)))))
+       (%make-state-name (append super-state (list state-description)) dsl-element)))))
 
 
 ;;; copy state-names
@@ -283,9 +283,9 @@
 (defmethod find-dsl-object ((state state) (dsl-object state))
   (when (string= (name state) (name dsl-object)) dsl-object))
 
-(defmethod find-dsl-object ((state or-state) (dsl-object dsl::cluster))
+(defmethod find-dsl-object ((state or-state) (dsl-object sc.dsl::cluster))
   (when (string= (name state) (name dsl-object))
-    (let ((states (remove-if-not #'(lambda (e) (typep e 'state)) (dsl::elements dsl-object))))
+    (let ((states (remove-if-not #'(lambda (e) (typep e 'state)) (sc.dsl::elements dsl-object))))
       ;; empty sub-state -> return dsl-object
       (if (not (sub-state state))
 	  dsl-object
@@ -295,10 +295,10 @@
 	    (if o (return o)))))))
 
 
-(defmethod find-dsl-object ((state and-state) (dsl-object dsl::orthogonal))
+(defmethod find-dsl-object ((state and-state) (dsl-object sc.dsl::orthogonal))
   (when (string= (name state) (name dsl-object))
     (let ((states (remove-if-not #'(lambda (e) (typep e 'state))
-				 (dsl::elements dsl-object))))
+				 (sc.dsl::elements dsl-object))))
       ;; empty sub-state -> return dsl-object
       (cond
 	((not (sub-states state)) dsl-object)
@@ -314,15 +314,15 @@
 
 (defgeneric from-chart-state (s))
 
-(defmethod from-chart-state ((s chart::s))
-  (make-instance 'name::state :name (chart::name s)))
+(defmethod from-chart-state ((s sc.chart::s))
+  (make-instance 'sc.key::state :name (sc.chart::name s)))
 
-(defmethod from-chart-state ((s chart::s-xor))
-  (make-instance 'name::or-state
-		 :name (chart::name s)
-		 :sub-state (from-chart-state (chart::sub-state s))))
+(defmethod from-chart-state ((s sc.chart::s-xor))
+  (make-instance 'sc.key::or-state
+		 :name (sc.chart::name s)
+		 :sub-state (from-chart-state (sc.chart::sub-state s))))
 
-(defmethod from-chart-state ((s chart::s-and))
-  (make-instance 'name::and-state
-		 :name (chart::name s)
-		 :sub-states (mapcar #'from-chart-state (chart::sub-states s))))
+(defmethod from-chart-state ((s sc.chart::s-and))
+  (make-instance 'sc.key::and-state
+		 :name (sc.chart::name s)
+		 :sub-states (mapcar #'from-chart-state (sc.chart::sub-states s))))

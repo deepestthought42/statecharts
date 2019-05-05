@@ -1,4 +1,9 @@
-(in-package #:statecharts)
+(defpackage #:statecharts.conditions
+  (:use #:cl #:iterate #:let-plus #:trivia)
+  (:nicknames #:sc.cond))
+
+
+(in-package #:statecharts.conditions)
 
 
 (define-condition state-exists (error)

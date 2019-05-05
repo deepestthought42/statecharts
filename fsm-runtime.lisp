@@ -1,4 +1,4 @@
-(in-package #:fsm)
+(in-package #:sc.fsm)
 
 
 (defclass statecharts-runtime-fsm ()
@@ -6,9 +6,9 @@
 		  :initform (error "Must initialize current-state."))
    (states :initarg :states :accessor states 
 	   :initform (error "Must initialize states."))
-   (sc::default-state :initarg :default-state :accessor sc::default-state 
+   (default-state :initarg :default-state :accessor default-state 
 		  :initform (error "Must initialize default-state."))
-   (sc::events :initarg :events :accessor sc::events 
+   (events :initarg :events :accessor events 
 	   :initform (error "Must initialize events."))
    (event-queue :accessor event-queue :initarg :event-queue)
    (processing :accessor processing :initarg :processing))
@@ -47,7 +47,6 @@
 	(t
 	 (iter
 	   (for target in (cdr ev/target*))
-	   ()
 	   (when (applicable target environment)
 	     (let+ (((&slots state on-exit-actions on-entry-actions on-reentry-actions) target))
 	       (dbgout :signal-event "Leaving state: ~a" (name current-state))
@@ -91,8 +90,8 @@
 
 (defun create-fsm-runtime (statechart &key debug)
   (let+ (((&slots sc::events sc::fsm-states sc::default-state) statechart)
-	 (default-fsm/state (find (name::from-chart-state sc::default-state)
-				  sc::fsm-states :test #'name::state=
+	 (default-fsm/state (find (sc.key::from-chart-state sc::default-state)
+				  sc::fsm-states :test #'sc.name::state=
 				  :key #'name)))
     (if (not default-fsm/state)
 	(error "Huh ? Couldn't find default state: ~a ?" sc::default-state))

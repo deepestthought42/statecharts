@@ -1,14 +1,15 @@
 (defpackage #:statecharts.chart
-  (:use #:cl #:iterate #:let-plus)
+  (:use #:cl #:iterate #:let-plus #:sc.cond)
   (:import-from #:statecharts.dsl
 		transition-clause
 		otherwise-clause
 		guard-clause)
-  (:nicknames #:chart))
+  (:nicknames #:sc.chart))
+
 #+nil
 (declaim (optimize (debug 3) (speed 0) (space 0)))
 
-(in-package #:chart)
+(in-package #:sc.chart)
 
 
 (defclass s ()
@@ -31,13 +32,13 @@
 
 (defgeneric copy-state (s &key))
 
-(sc::define-copy-object-method (s copy-state)
+(sc.utils::define-copy-object-method (s copy-state)
   name defining-state on-entry on-reentry on-exit)
 
-(sc::define-copy-object-method (s-xor copy-state)
+(sc.utils::define-copy-object-method (s-xor copy-state)
   name defining-state on-entry on-reentry on-exit sub-state default-state)
 
-(sc::define-copy-object-method (s-and copy-state)
+(sc.utils::define-copy-object-method (s-and copy-state)
   name defining-state on-entry on-reentry on-exit sub-states)
 
 
@@ -70,7 +71,7 @@
 
 (defmethod print-object ((obj transition) stream)
   (print-unreadable-object (obj stream)
-    (sc::%print-object (initial-state-name obj) stream)
+    (sc.utils::%print-object (initial-state-name obj) stream)
     (format stream " --|~a|--> " (event-name obj))
     (cond
       ((and (> (length (clauses obj)) 1))
@@ -78,9 +79,9 @@
        (iter
 	 (for g in (clauses obj))
 	 (if-first-time nil (format stream " | "))
-	 (sc::%print-object (dsl::final-state g) stream))
+	 (sc.utils::%print-object (sc.dsl::final-state g) stream))
        (format stream " ]"))
-      (t (sc::%print-object (dsl::final-state
+      (t (sc.utils::%print-object (sc.dsl::final-state
 			     (first (clauses obj))) stream)))))
 
 
@@ -118,18 +119,18 @@
   nil)
 
 (defmethod state=state-name ((state s)
-			     (state-name name::state))
-  (string= (name::name state-name)
+			     (state-name sc.key::state))
+  (string= (sc.key::name state-name)
 	   (name state)))
 
 (defmethod state=state-name ((state s-xor)
-			     (state-name name::or-state))
-  (string= (name::name state-name)
+			     (state-name sc.key::or-state))
+  (string= (sc.key::name state-name)
 	   (name state)))
 
 (defmethod state=state-name ((state s-and)
-			     (state-name name::and-state))
-  (string= (name::name state-name)
+			     (state-name sc.key::and-state))
+  (string= (sc.key::name state-name)
 	   (name state)))
 
 
@@ -146,9 +147,9 @@
     ;; name and state-name have to match as well as the type of name
     ((not (state=state-name s state-name)) nil)
     ;; the name matches but doesn't specify any sub-states -> match
-    ((not (name::sub-state state-name)) t)
+    ((not (sc.key::sub-state state-name)) t)
     ;; the name still matches and specifies sub-states -> test substate
-    (t (state-described-by-name (sub-state s) (name::sub-state state-name)))))
+    (t (state-described-by-name (sub-state s) (sc.key::sub-state state-name)))))
 
 (defmethod state-described-by-name ((s s-and) state-name)
   (labels ((is-sub-state (k)
@@ -160,10 +161,10 @@
       ;; name and state-name have to match as well as the type of state-name
       ((not (state=state-name s state-name)) nil)
       ;; the state-name doesn't specify any substates, so all good
-      ((not (name::sub-states state-name)) t)
+      ((not (sc.key::sub-states state-name)) t)
       ;; name matches and we have substates, so compare them one be one
       (t (reduce #'(lambda (a b) (and a b))
-		 (name::sub-states state-name)
+		 (sc.key::sub-states state-name)
 		 :key #'is-sub-state)))))
 
 
@@ -188,25 +189,25 @@
     ;; the name matches but doesn't specify any sub-states -> return technically, this
     ;; doesn't make any sense but for determining which state is reentered it might be
     ;; useful
-    ((not (name::sub-state state-name)) (copy-state state :sub-state nil))
+    ((not (sc.key::sub-state state-name)) (copy-state state :sub-state nil))
     ;; the name still matches and specifies sub-states -> test substate
     (t (copy-state state :sub-state
 		   (remove-implicit-substates (sub-state state)
-					      (name::sub-state state-name))))))
+					      (sc.key::sub-state state-name))))))
 
 
 (defmethod remove-implicit-substates ((state s-and) state-name)
   (check-state-name state state-name)
   (cond
     ;; the state-name doesn't specify any substates, so return nil
-    ((not (name::sub-states state-name)) (copy-state state :sub-states nil))
+    ((not (sc.key::sub-states state-name)) (copy-state state :sub-states nil))
     ;; name matches and we have substates, so return only
     ;; the ones given in state-name
     (t
      (copy-state state :sub-states
 		 (iter
-		   (for sn in (name::sub-states state-name))
-		   (for s = (find (name::name sn) (sub-states state)
+		   (for sn in (sc.key::sub-states state-name))
+		   (for s = (find (sc.key::name sn) (sub-states state)
 				  :test #'string= :key #'name))
 		   (when (not s) (error "Couldn't find substate with name: ~a" sn))
 		   (for explicit = (remove-implicit-substates s sn))
@@ -248,20 +249,20 @@
   => in-a-but-not-b*, in-b-but-not-a*"))
 
 (defmethod difference ((a s) (b s))
-  (if (= (dsl::id (defining-state a))
-	 (dsl::id (defining-state b)))
+  (if (= (sc.dsl::id (defining-state a))
+	 (sc.dsl::id (defining-state b)))
       (values '() '())
       (values (list a) (list b))))
 
 (defmethod difference ((a s-xor) (b s-xor))
-  (if (= (dsl::id (defining-state a))
-	 (dsl::id (defining-state b)))
+  (if (= (sc.dsl::id (defining-state a))
+	 (sc.dsl::id (defining-state b)))
       (difference (sub-state a) (sub-state b))
       (values (list a) (list b))))
 
 
 (defmethod difference ((a s-and) (b s-and))
-  (labels ((d-id (s) (dsl::id (defining-state s))))
+  (labels ((d-id (s) (sc.dsl::id (defining-state s))))
     (cond
       ((= (d-id a) (d-id b))
        (if (not (= (length (sub-states a))
@@ -284,15 +285,15 @@
 
 (defgeneric %is-partial-default-state (s state-name))
 
-(defmethod %is-partial-default-state ((s s) (state-name name::state)) t)
+(defmethod %is-partial-default-state ((s s) (state-name sc.key::state)) t)
 
-(defmethod %is-partial-default-state ((s s-xor) (state-name name::or-state))
-  (if (sub-state state-name)
-      (%is-partial-default-state (sub-state s) (sub-state state-name))
+(defmethod %is-partial-default-state ((s s-xor) (state-name sc.key::or-state))
+  (if (sc.key::sub-state state-name)
+      (%is-partial-default-state (sub-state s) (sc.key::sub-state state-name))
       (is-default-state s)))
 
 
-(defmethod %is-partial-default-state ((s s-and) (state-name name::and-state))
+(defmethod %is-partial-default-state ((s s-and) (state-name sc.key::and-state))
   (labels ((find-state-name (sub-s state-names)
 	     (iter
 	       (for state-name in state-names)
@@ -300,7 +301,7 @@
 		   (return state-name)))))
     (iter
       (for sub-s in (sub-states s))
-      (for s-name = (find-state-name sub-s (sub-states state-name)))
+      (for s-name = (find-state-name sub-s (sc.key::sub-states state-name)))
       (cond
 	((and s-name (not (%is-partial-default-state sub-s s-name))) (return nil))
 	((and (not s-name) (not (is-default-state sub-s))) (return nil)))
