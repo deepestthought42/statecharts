@@ -1,8 +1,9 @@
-(in-package #:statecharts)
-
-
-
 ;; let's start by reproducing Fig. 2 of
+
+
+
+(in-package #:statecharts)
+(in-package #:statecharts)
 
 (defstatechart (test-states)
   (c "test" (d "X" :entry (sc:act () (format t "Yes")))
@@ -191,6 +192,8 @@
 		 (otherwise "a")))
     (sc:-> "ev" "b" "c")
     (sc:-> "ev" "c" "a")))
+
+(sc:render sc/test "/home/renee/tmp/scratch.png")
 
 
 (let ((env (make-instance 'test-env :fsm (sc:create-fsm-runtime sc/test :debug t))))

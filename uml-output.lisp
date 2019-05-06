@@ -55,11 +55,26 @@
 		 (if (not chart-element)
 		     (error "Couldn't find state with name: ~a" state-name))
 		 (format nil "s~D" (sc.dsl::id chart-element)))))
-      ;; fixme: this doesn't work anymore
-      (f "~a --> ~a : ~a~%"
-	 (gid (sc.chart::initial-state-name transition))
-	 (gid (sc.chart::final-state-name transition)) ;
-	 (sc.chart::event-name transition)))))
+      
+      (iter
+	(for clause in (sc.chart::clauses transition))
+	(typecase clause
+	  (sc.chart::guard-clause
+	   (f "~a --> ~a : ~a ~a~%"
+	      (gid (sc.chart::initial-state-name transition))
+	      (gid (sc.dsl::final-state clause)) ;
+	      (sc.chart::event-name transition)
+	      (sc.dsl::code clause)))
+	  (sc.chart::otherwise-clause
+	   (f "~a --> ~a : ~a OTHERWISE~%"
+	      (gid (sc.chart::initial-state-name transition))
+	      (gid (sc.dsl::final-state clause)) ;
+	      (sc.chart::event-name transition)))
+	  (sc.chart::transition-clause
+	   (f "~a --> ~a : ~a~%"
+	      (gid (sc.chart::initial-state-name transition))
+	      (gid (sc.dsl::final-state clause)) ;
+	      (sc.chart::event-name transition))))))))
 
 
 (defgeneric render-to-uml (root filename &key))

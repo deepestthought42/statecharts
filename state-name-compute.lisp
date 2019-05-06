@@ -280,12 +280,13 @@
   (:method ((state t) (dsl-object t)) nil))
 
 
-(defmethod find-dsl-object ((state state) (dsl-object state))
-  (when (string= (name state) (name dsl-object)) dsl-object))
+(defmethod find-dsl-object ((state state) (dsl-object sc.dsl::state))
+  (when (string= (name state) (sc.dsl::name dsl-object)) dsl-object))
 
 (defmethod find-dsl-object ((state or-state) (dsl-object sc.dsl::cluster))
-  (when (string= (name state) (name dsl-object))
-    (let ((states (remove-if-not #'(lambda (e) (typep e 'state)) (sc.dsl::elements dsl-object))))
+  (when (string= (name state) (sc.dsl::name dsl-object))
+    (let ((states (remove-if-not #'(lambda (e) (typep e 'sc.dsl::state))
+				 (sc.dsl::elements dsl-object))))
       ;; empty sub-state -> return dsl-object
       (if (not (sub-state state))
 	  dsl-object
@@ -296,8 +297,8 @@
 
 
 (defmethod find-dsl-object ((state and-state) (dsl-object sc.dsl::orthogonal))
-  (when (string= (name state) (name dsl-object))
-    (let ((states (remove-if-not #'(lambda (e) (typep e 'state))
+  (when (string= (name state) (sc.dsl::name dsl-object))
+    (let ((states (remove-if-not #'(lambda (e) (typep e 'sc.dsl::state))
 				 (sc.dsl::elements dsl-object))))
       ;; empty sub-state -> return dsl-object
       (cond

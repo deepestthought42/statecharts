@@ -11,7 +11,8 @@
    #:environment
    #:signal-event
    #:create-fsm-runtime
-   #:defstatechart))
+   #:defstatechart
+   #:render))
 
 
 (in-package #:statecharts)
