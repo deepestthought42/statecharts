@@ -51,16 +51,17 @@
 		    (iter
 		      (for s-1 in states-1)
 		      (appending
-		       (mapcar #'(lambda (s-n)
-				   (make-instance 's-and :name sc.dsl::name
-							 :defining-state ortho
-							 :on-entry (sc.dsl::on-entry ortho)
-							 :on-reentry (sc.dsl::on-reentry ortho)
-							 :on-exit (sc.dsl::on-exit ortho)
-							 :sub-states
-							 (append (list s-1)
-								 (sub-states s-n))))
-			       states-n))))))))
+		       (mapcar
+			#'(lambda (s-n)
+			    (make-instance 's-and :name sc.dsl::name
+						  :defining-state ortho
+						  :on-entry (sc.dsl::on-entry ortho)
+						  :on-reentry (sc.dsl::on-reentry ortho)
+						  :on-exit (sc.dsl::on-exit ortho)
+						  :sub-states
+						  (append (list s-1)
+							  (sub-states s-n))))
+			states-n))))))))
       (combine-elements lst-of-lst-of-substates))))
 
 

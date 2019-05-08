@@ -137,7 +137,6 @@
 
 (defgeneric state-described-by-name (s state-name))
 
-(defmethod state-described-by-name ((s t) state-name) nil)
 
 (defmethod state-described-by-name ((s s) state-name)
   (state=state-name s state-name))
@@ -314,6 +313,7 @@
 
 (defun get-partial-default-state (lst-of-states state-name)
   (let+ ((described-states (get-states-described-by-name lst-of-states state-name)))
-    (first (remove-if-not #'(lambda (s) (%is-partial-default-state s state-name)) described-states))))
+    (first (remove-if-not #'(lambda (s) (%is-partial-default-state s state-name))
+			  described-states))))
 
 
