@@ -13,11 +13,13 @@
   ((name :initarg :name :accessor name 
 	 :initform (error "Must initialize name."))
    (ev->state :accessor ev->state :initarg :ev->state
-	      :initform '())))
+	      :initform '())
+   (targets-with-history :accessor targets-with-history :initarg :targets-with-history
+			 :initform '())))
 
-(defmethod print-object ((obj  state) stream)
+(defmethod print-object ((obj state) stream)
   (print-unreadable-object (obj stream)
-    (format stream " state w/name: ")
+    (format stream "state w/name: ")
     (sc.utils::%print-object (name obj) stream)))
 
 
@@ -41,18 +43,29 @@
    (initial-name :initarg :initial-name :accessor initial-name
 		 :initform (error "Must initialize initial-name."))
    (final-name :initarg :final-name :accessor final-name
-	       :initform (error "Must initialize final-name."))
+ 	       :initform (error "Must initialize final-name."))
    (state :initarg :state :accessor state
 	  :initform (error "Must initialize state."))))
 
+(defmethod print-object ((obj target) stream)
+  (print-unreadable-object (obj stream)
+    (format stream "-> ")
+    (sc.utils::%print-object (name (state obj)) stream)))
 
 (defgeneric applicable (target environment)
-  (:method ((target target) environment) t))
+  (:method ((target target) environment)
+    (declare (ignorable target environment))
+    t))
 
 
 (defclass guarded-target (target)
   ((clauses :accessor clauses :initarg :clauses
 	    :initform (error "Need to initialize CLAUSES."))))
+
+
+(defgeneric update-history (target new-fsm-state)
+  (:method ((target target) (new-fsm-state state))
+    (setf (state target) new-fsm-state)))
 
 
 (defmethod applicable ((target guarded-target) environment)

@@ -1,6 +1,6 @@
 ;; let's start by reproducing Fig. 2 of
 
-
+ 
 
 (in-package #:statecharts)
 (in-package #:statecharts)
@@ -179,24 +179,42 @@
 	    :initform 0)))
 
 (defstatechart (sc/test)
-  (sc:c "test" (sc:d "a")
-    (sc:s "a" :reentry (act (e)
-			 (incf (counter e))
-			 (format t "reentry, counter: ~D ~%" (counter e)))
-	      :exit (act (e) (setf (counter e) 0)))
+  (sc:c "outer" (sc:d "test")
+    (sc:c "test" (sc:h "b")
+      (sc:s "a" :reentry (act (e)
+			   (incf (counter e))
+			   (format t "reentry, counter: ~D ~%" (counter e)))
+		:exit (act (e) (setf (counter e) 0)))
+      (sc:s "b")
+      (sc:s "c")
+      (sc:-> "ev" "a"
+	     (cond (e)
+		   ((>= (counter e) 2) "b")
+		   (otherwise "a")))
+      (sc:-> "ev" "b" "c")
+      (sc:-> "ev" "c" "a"))
     (sc:s "b")
     (sc:s "c")
-    (sc:-> "ev" "a"
-	   (cond (e)
-		 ((>= (counter e) 2) "b")
-		 (otherwise "a")))
-    (sc:-> "ev" "b" "c")
-    (sc:-> "ev" "c" "a")))
+    (sc:-> "in" "b" "test")
+    (sc:-> "in" "c" "test")
+    (sc:-> "out" "test" "b")
+    (sc:-> "out" "b" "c")
+    (sc:-> "out" "c" "b")))
 
 (sc:render sc/test "/home/renee/tmp/scratch.png")
 
+(defparameter *test* (make-instance 'test-env :fsm
+				    (sc:create-fsm-runtime sc/test :debug t)))
 
-(let ((env (make-instance 'test-env :fsm (sc:create-fsm-runtime sc/test :debug t))))
+
+
+(signal-event *test* '|ev|)
+(signal-event *test* '|out|)
+(signal-event *test* '|in|)
+
+(let ((env (make-instance 'test-env
+			  :fsm
+			  (sc:create-fsm-runtime sc/test :debug t))))
   (sc:signal-event env '|ev|)
   (sc:signal-event env '|ev|)
   (sc:signal-event env '|ev|)

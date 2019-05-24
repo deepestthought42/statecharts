@@ -14,17 +14,22 @@
 
 (defclass s ()
   ((name :initarg :name :accessor name :initform (error "Must initialize name."))
-   (defining-state :initarg :defining-state :accessor defining-state 
-		   :initform nil)
+   (defining-state :initarg :defining-state :accessor defining-state :initform nil)
    (on-entry :accessor on-entry :initarg :on-entry :initform '())
    (on-reentry :accessor on-reentry :initarg :on-reentry :initform '())
    (on-exit :accessor on-exit :initarg :on-exit :initform '())))
+
+
 
 (defclass s-xor (s)
   ((sub-state :initarg :sub-state :accessor sub-state 
 	      :initform (error "Must initialize sub-state."))
    (default-state :initarg :default-state :accessor default-state 
 		  :initform (error "Must initialize default-state."))))
+
+
+(defclass history-s-xor (s-xor) ())
+
 
 (defclass s-and (s)
   ((sub-states :initarg :sub-states :accessor sub-states 
@@ -282,38 +287,66 @@
 
 ;;; these methods assume states S that correspond to the name given
 
-(defgeneric %is-partial-default-state (s state-name))
+(defun %find-state-name (sub-s state-names)
+  (iter
+    (for state-name in state-names)
+    (if (state-described-by-name sub-s state-name)
+	(return state-name))))
 
-(defmethod %is-partial-default-state ((s s) (state-name sc.key::state)) t)
+(defgeneric is-partial-default-state (s state-name))
 
-(defmethod %is-partial-default-state ((s s-xor) (state-name sc.key::or-state))
+(defmethod is-partial-default-state ((s s) (state-name sc.key::state)) t)
+
+(defmethod is-partial-default-state ((s s-xor) (state-name sc.key::or-state))
   (if (sc.key::sub-state state-name)
-      (%is-partial-default-state (sub-state s) (sc.key::sub-state state-name))
+      (is-partial-default-state (sub-state s) (sc.key::sub-state state-name))
       (is-default-state s)))
 
+(defmethod is-partial-default-state ((s s-and) (state-name sc.key::and-state))
+  (iter
+    (for sub-s in (sub-states s))
+    (for s-name = (%find-state-name sub-s (sc.key::sub-states state-name)))
+    (cond
+      ((and s-name (not (is-partial-default-state sub-s s-name))) (return nil))
+      ((and (not s-name) (not (is-default-state sub-s))) (return nil)))
+    (finally (return t))))
 
-(defmethod %is-partial-default-state ((s s-and) (state-name sc.key::and-state))
-  (labels ((find-state-name (sub-s state-names)
-	     (iter
-	       (for state-name in state-names)
-	       (if (state-described-by-name sub-s state-name)
-		   (return state-name)))))
-    (iter
-      (for sub-s in (sub-states s))
-      (for s-name = (find-state-name sub-s (sc.key::sub-states state-name)))
-      (cond
-	((and s-name (not (%is-partial-default-state sub-s s-name))) (return nil))
-	((and (not s-name) (not (is-default-state sub-s))) (return nil)))
-      (finally (return t)))))
+
+(defgeneric is-history-state (state))
+
+(defmethod is-history-state ((state t)) nil)
+
+(defmethod is-history-state ((state history-s-xor)) t)
+
+(defmethod is-history-state ((s s-xor))
+  (is-history-state (sub-state s)))
+
+(defmethod is-history-state ((s s-and))
+  (iter
+    (for sub-s in (sub-states s))
+    (when (is-history-state sub-s)
+      (return t))
+    (finally (return nil))))
+
+
 
 
 (defun get-states-described-by-name (lst-of-states state-name)
   (remove-if-not #'(lambda (s) (state-described-by-name s state-name))
 		 lst-of-states))
 
-(defun get-partial-default-state (lst-of-states state-name)
-  (let+ ((described-states (get-states-described-by-name lst-of-states state-name)))
-    (first (remove-if-not #'(lambda (s) (%is-partial-default-state s state-name))
-			  described-states))))
+
+(defun resolve-final-state (lst-of-states state-name)
+  (let+ ((described-states (get-states-described-by-name lst-of-states state-name))
+	 ;; in theory, these are more states than necessary as not all of
+	 ;; history-states will have exits, but keeping track of this is
+	 ;; bothersome; fixme: if this should be a performance issue, we might
+	 ;; wanna fix it
+	 (history-states (remove-if-not #'is-history-state described-states))
+	 (resolved-states (remove-if-not #'(lambda (s) (is-partial-default-state s state-name))
+					 history-states)))
+    (unless (= (length resolved-states) 1)
+      (error "Implementation error resolving default state for: ~a" state-name))
+    (values (first resolved-states) history-states)))
 
 

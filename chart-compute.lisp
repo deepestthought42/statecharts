@@ -15,19 +15,25 @@
 			  :on-exit (sc.dsl::on-exit s))))
 
 (defmethod compute-substates ((cluster sc.dsl::cluster))
-  (let+ (((&slots sc.dsl::name sc.dsl::elements sc.dsl::default-state) cluster))
+  (let+ (((&slots sc.dsl::name sc.dsl::elements sc.dsl::default-state
+		  sc.dsl::selector-type) cluster))
     (iter outer
       (for e in sc.dsl::elements)
       (for sub-states = (compute-substates e))
       (iter
 	(for s in sub-states)
 	(in outer
-	    (collect (make-instance 's-xor :name sc.dsl::name :sub-state s
-					   :defining-state cluster
-					   :on-entry (sc.dsl::on-entry cluster)
-					   :on-reentry (sc.dsl::on-reentry cluster)
-					   :on-exit (sc.dsl::on-exit cluster)
-					   :default-state sc.dsl::default-state)))))))
+	    (collect (make-instance (case sc.dsl::selector-type
+				      (sc::h 'history-s-xor)
+				      (sc::d 's-xor)
+				      (t (error "Unknown selector type: ~a"
+						sc.dsl::selector-type)))
+				    :name sc.dsl::name :sub-state s
+				    :defining-state cluster 
+				    :on-entry (sc.dsl::on-entry cluster)
+				    :on-reentry (sc.dsl::on-reentry cluster)
+				    :on-exit (sc.dsl::on-exit cluster)
+				    :default-state sc.dsl::default-state)))))))
 
 (defmethod compute-substates ((ortho sc.dsl::orthogonal))
   (let+ (((&slots sc.dsl::name sc.dsl::elements) ortho)

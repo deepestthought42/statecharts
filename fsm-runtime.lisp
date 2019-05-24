@@ -25,11 +25,19 @@
 				  args)))))
 
 
+(defun update-targets-with-history (state debug-fn)
+  (labels ((dbgout (cat str &rest args)
+	     (apply debug-fn cat str args)))
+    (iter
+      (with targets* = (targets-with-history state))
+      (for target in targets*)
+      ;; (dbgout "Updating target: ~a with final state: ~a" target state)
+      (setf (state target) state))))
+
 
 (defun %%signal-event (current-state debug-fn event environment)
   (let+ (((&slots ev->state on-exit) current-state)
 	 (ev/target* (assoc event ev->state)))
-    ;; fixmee: guards not implemented yet
     (labels ((dbgout (cat str &rest args)
 	       (apply debug-fn cat str args))
 	     (execute-actions (actions category)
@@ -42,16 +50,19 @@
       (dbgout :signal-event "Received event: ~a" event)
       (cond
 	((not ev/target*)
-	 (dbgout :signal-event "Not reacting on event: ~a in state: ~a" event (name current-state))
+	 (dbgout :signal-event "Not reacting on event: ~a in state: ~a"
+		 event (name current-state))
 	 (return-from %%signal-event current-state))
 	(t
 	 (iter
 	   (for target in (cdr ev/target*))
 	   (when (applicable target environment)
-	     (let+ (((&slots state on-exit-actions on-entry-actions on-reentry-actions) target))
+	     (let+ (((&slots state on-exit-actions
+			     on-entry-actions on-reentry-actions) target)) 
 	       (dbgout :signal-event "Leaving state: ~a" (name current-state))
-	       (execute-actions on-exit-actions :exit-actions) 
+	       (execute-actions on-exit-actions :exit-actions)
 	       (dbgout :signal-event "Entered state: ~a" (name state))
+	       (update-targets-with-history state debug-fn)
 	       (execute-actions on-entry-actions :entry-actions)
 	       (execute-actions on-reentry-actions :reentry-actions)
 	       (return state)))

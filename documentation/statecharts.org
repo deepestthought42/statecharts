@@ -100,16 +100,47 @@ first thing to come up with, elements of the DSL
     fsm
 * TODOs 
 ** TODO guard against two substates with the same name
-** NA write function to parse conditionals 
-** TODO given the transitions for an event, create cond to final state mapping
-** TODO how to describe what to do upon max no of reentries ?
+** DONE write function to parse conditionals 
+** DONE given the transitions for an event, create cond to final state mapping
+** DONE how to describe what to do upon max no of reentries ?
 *A*: implement this as a conditional using a mehtod on the environment: no-of-reentries
 
-** TODO keep track of no of reentries
+** DONE keep track of no of reentries
 - incr. when reentry
 - set to zero when exit
 
 ** DONE for transitions with reentry, find the correct actions to execute
+** TODO implement history states
+- easiest way (at least conceptually) :: add a state that fires an event to the
+     last state
+- the keep up order of events, make sure that history events have highest
+  priority (i.e. get executed before anything else) 
+- first idea for keep priority of history events highest :: separate queue
+- I have a vague intuition that there might be a different solution where every
+  cluster has a "shadow" cluster keeping track of the history, but the other
+  option seems to be a lot easier and as long as it is not prohibitive in terms
+  of performance ... 
+- actually, could just introduce a transition with a clause for every substate,
+  certainly the easiest to implement (maybe a bit slower for a dynamic runtime,
+  but for performance critical writing static code is probably called for anyways)
+- I might still need a separate queue for this, though
+** what is needed for the transition object
+- easiest might be to keep a history for every transition the content of which
+  can only be the states that can be reached, so we can branch on that
+- since we know the initial state fsm state as well, we can completely determine
+  the next fsm state when keeping it with the transitions based on initial and
+  final state
+- so what we need is to set the history for the transition when exiting the
+  final states associated with it
+- each transition gets a seperate history so when exiting the fsm state the
+  histories need to be set
+- this can be done by just adding exit actions to the fsm after determining the 
+  final state of the transition
+- setting the history means changing the final state of the target
+- how do I mark history states when resolving partial states ?
+
+
+
 * Footnotes
 
 [fn:1] https://www.merriam-webster.com/dictionary/system

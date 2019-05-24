@@ -149,7 +149,7 @@
 
 (defmethod render ((obj t) filename &key (output-type "png"))
   (let ((uml-filename (make-pathname :directory (pathname-directory filename)
-				      :name (pathname-name filename) :type "uml")))
+				     :name (pathname-name filename) :type "uml")))
     (render-to-uml obj uml-filename)
     (uiop:run-program (format nil "~a -t~a ~a" *plant-uml-exe* output-type uml-filename)
     		      :ignore-error-status nil)))

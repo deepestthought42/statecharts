@@ -7,6 +7,7 @@
    #:c
    #:s
    #:d
+   #:h
    #:act
    #:environment
    #:signal-event
