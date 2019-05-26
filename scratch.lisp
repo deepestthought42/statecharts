@@ -180,10 +180,8 @@
 
 (defstatechart (sc/test)
   (sc:c "outer" (sc:d "test")
-    (sc:c "test" (sc:h "b")
-      (sc:s "a" :reentry (act (e)
-			   (incf (counter e))
-			   (format t "reentry, counter: ~D ~%" (counter e)))
+    (sc:c "test" (sc:h "a")
+      (sc:s "a" :reentry (act (e) (incf (counter e)))
 		:exit (act (e) (setf (counter e) 0)))
       (sc:s "b")
       (sc:s "c")
@@ -207,14 +205,12 @@
 				    (sc:create-fsm-runtime sc/test :debug t)))
 
 
-
 (signal-event *test* '|ev|)
 (signal-event *test* '|out|)
 (signal-event *test* '|in|)
 
 (let ((env (make-instance 'test-env
-			  :fsm
-			  (sc:create-fsm-runtime sc/test :debug t))))
+			  :fsm (sc:create-fsm-runtime sc/test :debug t))))
   (sc:signal-event env '|ev|)
   (sc:signal-event env '|ev|)
   (sc:signal-event env '|ev|)

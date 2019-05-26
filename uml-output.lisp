@@ -25,13 +25,30 @@
 			  chart-element))
 		 all-transitions))
 
+(defun stringify-code (code &key (right-margin 50))
+  (let ((*print-right-margin* right-margin))
+    (split-sequence:split-sequence
+     #\Newline
+     (with-output-to-string (stream)
+       (mapcar #'(lambda (c) (pprint c stream)) code)))))
+
 (macrolet ((f (str &rest args)
 	     `(progn
 		(format stream "~v@{~A~:*~}"
 			(+ indent *indentation-step*)
 			" ")
 		(format stream ,str ,@args))))
-  
+  (defun print-actions (stream s &key (indent 0))
+    (labels ((p (category act) 		  
+	       (when act
+		 (f "s~D : <b>~a:</b>~%" (sc.dsl::id s) category)
+		 (mapcar #'(lambda (line)
+			     (unless (string= line "")
+			       (f "s~D : \"\"~a\"\" ~%" (sc.dsl::id s) line)))
+			 (stringify-code  (sc.dsl::code act))))))
+      (p "on entry" (sc.dsl::on-entry s))
+      (p "on reentry" (sc.dsl::on-reentry s))
+      (p "on exit" (sc.dsl::on-exit s))))
   (defun create-fork-states (stream transitions root &key (indent 0))
     (iter
       (for tr in transitions)
@@ -47,6 +64,7 @@
 
   (defmethod nodes ((s sc.dsl::state) stream transitions &key (indent 0) (root s))
     (f "state \"~a\" as s~D~%" (sc.dsl::name s) (sc.dsl::id s))
+    (print-actions stream s :indent indent)
     (create-fork-states stream
 			(get-transitions-for-state s transitions root)
 			root :indent indent))
@@ -59,7 +77,12 @@
 		 (sc.dsl::id def)
 		 (error "Couldn't find default state."))))
       (f "state \"~a\" as s~D {~%" (sc.dsl::name s) (sc.dsl::id s))
-      (f "[*] --> s~D~%" (find-default))
+      (case (sc.dsl::selector-type s)
+	(sc:d
+	 (f "[*] --> s~D~%" (find-default)))
+	(sc:h
+	 (f "state \"History\" as sh~D <<history_state>> ~%" (sc.dsl::id s))
+	 (f "sh~D -[dotted]-> s~D~%" (sc.dsl::id s) (find-default))))
       (iter
 	(for e in (sc.dsl::elements s))
 	(nodes e stream transitions :indent (+ indent *indentation-step*) :root root))
@@ -77,8 +100,8 @@
       (nodes e stream transitions :indent (+ indent *indentation-step*) :root root)
       (f "||~%")
       (finally
-	  (nodes (first (last els)) stream transitions
-		 :indent (+ indent *indentation-step*))))
+       (nodes (first (last els)) stream transitions
+	      :indent (+ indent *indentation-step*))))
     (f "}~%"))
 
   
@@ -96,7 +119,7 @@
 		 (let* ((event-name (sc.chart::event-name transition))
 			(initial-state (gid (sc.chart::initial-state-name transition)))
 			(fork_state (make-fork-state-name initial-state event-name)))
-		   (f "~a --> ~a : ~a~%" initial-state fork_state event-name)
+		   (f "~a -> ~a : ~a~%" initial-state fork_state event-name)
 		   fork_state))
 		(t (error "Something is wrong here ... and it shouldn't be."))))
 	(for clause in clauses)
@@ -125,6 +148,8 @@
 			  :direction :output :if-exists if-exists)
     (format stream "@startuml~%")
     (format stream "skinparam classFontSize 9~%")
+    (format stream "skinparam StateBackgroundColor<<history_state>> White~%")
+    (format stream "skinparam StateAttributeFontStyle<<action>> bold~%")
     (format stream "hide empty description~%")
     (let ((transitions (sc.chart::compute-transitions root '() root)))
       (nodes root stream transitions)

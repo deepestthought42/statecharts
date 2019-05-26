@@ -11,6 +11,7 @@
 		#:group-by
 		#:trivia
 		#:trivia.quasiquote
+		#:split-sequence
 		#:parachute
 		#:queues.simple-queue
 		#:fare-quasiquote-extras)
