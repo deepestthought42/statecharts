@@ -1,5 +1,5 @@
 (in-package :statecharts)
-
+;; implementation of the statecharts watch example
 
 (defparameter /alarm-1-status/
   (c "alarm 1 status" (d "disabled")
