@@ -8,6 +8,7 @@
 	   #:c
 	   #:s
 	   #:d
+	   #:if-in-state
 	   #:act))
 
 (in-package #:statecharts.dsl)
@@ -70,6 +71,10 @@
 (defclass transition-clause ()
   ((final-state :accessor final-state :initarg :final-state
 		:initform (error "Must initialize FINAL-STATE."))))
+
+(defclass when-in-state-clause (transition-clause)
+  ((in-state :accessor in-state :initarg :in-state
+	     :initform (error "Need to initialize IN-STATE."))))
 
 (defclass otherwise-clause (transition-clause) ())
 

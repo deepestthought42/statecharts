@@ -287,11 +287,7 @@
 
 ;;; these methods assume states S that correspond to the name given
 
-(defun %find-state-name (sub-s state-names)
-  (iter
-    (for state-name in state-names)
-    (if (state-described-by-name sub-s state-name)
-	(return state-name))))
+
 
 (defgeneric is-partial-default-state (s state-name))
 
@@ -299,17 +295,24 @@
 
 (defmethod is-partial-default-state ((s s-xor) (state-name sc.key::or-state))
   (if (sc.key::sub-state state-name)
-      (is-partial-default-state (sub-state s) (sc.key::sub-state state-name))
+      (is-partial-default-state (sub-state s)
+				(sc.key::sub-state state-name))
       (is-default-state s)))
 
 (defmethod is-partial-default-state ((s s-and) (state-name sc.key::and-state))
-  (iter
-    (for sub-s in (sub-states s))
-    (for s-name = (%find-state-name sub-s (sc.key::sub-states state-name)))
-    (cond
-      ((and s-name (not (is-partial-default-state sub-s s-name))) (return nil))
-      ((and (not s-name) (not (is-default-state sub-s))) (return nil)))
-    (finally (return t))))
+  (labels ((%find-state-name (sub-s state-names)
+	     (iter
+	       (for state-name in state-names)
+	       (if (state-described-by-name sub-s state-name)
+		   (return state-name)))))
+    (iter
+      (for sub-s in (sub-states s))
+      (for s-name = (%find-state-name sub-s (sc.key::sub-states state-name)))
+      (cond
+	((and s-name (not (is-partial-default-state sub-s s-name))) (return nil))
+	;; ((and (not s-name) (not (is-default-state sub-s))) (return nil))
+	)
+      (finally (return t)))))
 
 
 (defgeneric is-history-state (state))
@@ -344,8 +347,9 @@
 	 ;; wanna fix it
 	 (history-states (remove-if-not #'is-history-state described-states))
 	 (resolved-states (remove-if-not #'(lambda (s) (is-partial-default-state s state-name))
-					 history-states)))
-    (unless (= (length resolved-states) 1)
+					 described-states))
+	 (final-state resolved-states))
+    (unless (= (length final-state) 1)
       (error "Implementation error resolving default state for: ~a" state-name))
     (values (first resolved-states) history-states)))
 

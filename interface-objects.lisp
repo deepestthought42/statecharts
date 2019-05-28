@@ -13,6 +13,8 @@
    #:signal-event
    #:create-fsm-runtime
    #:defstatechart
+   #:if-in-state
+   #:cond
    #:render))
 
 

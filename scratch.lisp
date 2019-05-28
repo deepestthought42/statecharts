@@ -178,6 +178,9 @@
   ((counter :accessor counter :initarg :counter
 	    :initform 0)))
 
+
+
+
 (defstatechart (sc/test)
   (sc:o "outer" ()
     (sc:c "left" (sc:d "test")
@@ -200,7 +203,23 @@
       (sc:-> "out" "b" "c")
       (sc:-> "out" "c" "b"))
     (sc:c "right" (sc:d "a")
-      (sc:s "a"))))
+      (sc:s "a")
+      (sc:s "b")
+      (sc:-> "ev" "a" "b")
+      (sc:-> "ev" "b" "a"))))
+
+(defstatechart (sc/regress)
+  (sc:o "ortho" ()
+    (sc:c "top" (sc:d "a")
+      (sc:c "a" (sc:d "a")
+	(sc:s "a")
+	(sc:s "b"))
+      (sc:-> "in" "b" "a")
+      (sc:-> "out" "b" "a")
+      (sc:s "b"))
+    (sc:c "bottom" (sc:d "a")
+      (sc:s "a")
+      (sc:s "b"))))
 
 (sc:render sc/test "/home/renee/tmp/scratch.png")
 

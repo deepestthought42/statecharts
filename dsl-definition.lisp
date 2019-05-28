@@ -4,15 +4,19 @@
 
 
 ;;; macros and their helper that make up the statecharts DSL
+(defun key-type-p (thing)
+  (or (typep thing 'string)
+      (typep thing 'symbol)
+      (typep thing 'list)))
+
+
 (defun parse-guard-clause (clause environment-symbol)
   (match clause
     ((guard (list (or 't 'otherwise) final-state)
-	    (or (typep final-state 'string)
-		(typep final-state 'symbol)))
+	    (key-type-p final-state))
      `(make-instance 'sc.dsl::otherwise-clause :final-state ,final-state))
     ((guard (list code final-state)
-	    (or (typep final-state 'string)
-		(typep final-state 'symbol)))
+	    (key-type-p final-state))
      `(make-instance 'sc.dsl::guard-clause :final-state ,final-state
 					   :fun #'(lambda (,environment-symbol)
 						    (declare (ignorable ,environment-symbol))
@@ -20,12 +24,15 @@
 					   :code ',code))
     (otherwise (error "Could not parse guard clause: ~a" clause))))
 
-
-
 (defun parse-final-state (final)
   (match final
     ((or (type string) (type symbol))
      `(list (make-instance 'sc.dsl::transition-clause :final-state ,final)))
+    ;; ((guard  (list 'if-in-state in-state final-state)
+    ;; 	     (and (key-type-p final-state)
+    ;; 		  (key-type-p in-state)))
+    ;;  `(list (make-instance 'sc.dsl::when-in-state-clause :final-state ,final-state
+    ;; 							 :in-state ,in-state)))
     ((cons (or 'cond 'guard) (cons (or (cons environment-symbol _) (list)) clauses))
      (if (not clauses)
 	 (error "Couldn't parse final state specification: ~a" final))

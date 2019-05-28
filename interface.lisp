@@ -24,11 +24,11 @@
   (declare (ignore definitions))
   (cond
     ((not (symbolp name))
-     (error 'invalid-chart-syntax
+     (error 'sc.cond::invalid-chart-syntax
 	    :message "Name needs to be a symbol."
 	    :offending-code name))
     ((not (stringp description))
-     (error 'invalid-chart-syntax
+     (error 'sc.cond::invalid-chart-syntax
 	    :message "Description needs to be a string."
 	    :offending-code description))))
 

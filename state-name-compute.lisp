@@ -14,8 +14,9 @@
 
 (defun from-description (state-description dsl-element &optional super-state)
   (labels ((throw-invalid (reason &rest args)
-	     (error 'invalid-state-descriptor :descriptor state-description
-					      :reason (apply #'format nil reason args)))
+	     (error 'sc.cond::invalid-state-descriptor
+		    :descriptor state-description
+		    :reason (apply #'format nil reason args)))
 	   (state-p (obj) (typep obj 'sc.dsl::state))
 	   (find-element (state elements)
 	     (alexandria:if-let (sub-s (find state (remove-if-not #'state-p elements)
@@ -108,7 +109,7 @@
 ;;; joining ops
 
 (defun throw-couldnt-join-state-names (a b reason &rest args)
-  (error 'couldnt-join-state-names
+  (error 'sc.cond::couldnt-join-state-names
 	 :state-a a
 	 :state-b b
 	 :reason (format nil reason args)))
@@ -203,33 +204,46 @@
 
 ;;; set-difference-state-names
 
-(defgeneric difference (a b)
-  (:method (a b) '()))
+(defgeneric difference (a b &key accept-unspecified-substate)
+  (:method (a b &key accept-unspecified-substate)
+    (declare (ignore b accept-unspecified-substate))
+    (copy a))
+  (:documentation "Return the part (and/or) of key A that is not present in key
+B.  When ACCEPT-UNSPECIFIED-SUBSTATE is true, unspecified substates in a cluster
+are ignored, such that: (difference (a b) (a)) -> NIL."))
+
+(defun %same-name (a b)
+  (string= (name a) (name b)))
 
 
-
-(defmethod difference ((a state) (b state))
+(defmethod difference ((a state) (b state) &key accept-unspecified-substate)
+  (declare (ignore accept-unspecified-substate))
   (cond
-    ((string= (name a) (name b)) '())
+    ((%same-name a b) '())
     (t (copy a))))
 
-(defmethod difference ((a or-state) (b or-state))
+(defmethod difference ((a or-state) (b state) &key accept-unspecified-substate)
+  (if (and (%same-name a b) accept-unspecified-substate)
+      '()
+      (copy a)))
+
+(defmethod difference ((a or-state) (b or-state) &key accept-unspecified-substate)
   (cond
-    ((and (string= (name a) (name b))
-	  (sub-state a) (not (sub-state b)))
-     (copy a))
-    ((and (string= (name a) (name b))
-	  (not (sub-state a)))
+    ((and (%same-name a b) (sub-state a) (not (sub-state b)))
+     (if accept-unspecified-substate
+	 '() (copy a)))
+    ((and (%same-name a b) (not (sub-state a)))
      '())
-    ((string= (name a) (name b))
-     (let ((diff (difference (sub-state a) (sub-state b))))
+    ((%same-name a b)
+     (let ((diff (difference (sub-state a) (sub-state b)
+			     :accept-unspecified-substate accept-unspecified-substate)))
        (if diff
 	   (make-instance 'or-state
 			  :name (name a)
 			  :sub-state (copy diff)))))
     (t (copy a))))
 
-(defmethod difference ((a and-state) (b and-state))
+(defmethod difference ((a and-state) (b and-state) &key accept-unspecified-substate)
   (cond
     ((string= (name a) (name b))
      (let (diff)
@@ -239,7 +253,10 @@
 			    :key #'name :test #'string=))
 	 (cond
 	   ((not sub-b) (push (copy sub-a) diff))
-	   (t (push (difference sub-a sub-b) diff))))
+	   (t (push (difference sub-a sub-b
+				:accept-unspecified-substate
+				accept-unspecified-substate)
+		    diff))))
        (alexandria:if-let (diff (remove-if #'not diff))
 	 (make-instance 'and-state :name (name a) :sub-states diff))))
     (t (copy a))))

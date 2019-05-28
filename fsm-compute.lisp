@@ -45,9 +45,9 @@
 				 states)))
     (let+ (((&values in-initial-but-not-final
 		     in-final-but-not-initial)
-	    (sc.key::difference initial final)))
-      (values (acc in-initial-but-not-final #'sc.dsl::on-exit)
-	      (acc in-final-but-not-initial #'sc.dsl::on-entry)))))
+	    (sc.chart::difference initial final)))
+      (values (acc in-initial-but-not-final #'sc.chart::on-exit)
+	      (acc in-final-but-not-initial #'sc.chart::on-entry)))))
 
 
 
@@ -83,7 +83,8 @@
 	 ;; FULL-INITIAL-STATE-NAME) but are not described by the initial-state of
 	 ;; TRANSITIONS
 	 (in-current-state-but-not-trans (sc.key::difference full-initial-state-name
-							     trans-init-state-name))
+							     trans-init-state-name
+							     :accept-unspecified-substate t))
 	 ;; select FINAL-STATES from possible states such that orthogonal states not
 	 ;; affected by TRANSITIONS stay the same 
 	 (final-states
@@ -112,7 +113,8 @@
       ;; history states
       ((> (length final-states) 1)
        (let+ (((&values default-state history-states)
-	       (sc.chart::resolve-final-state final-states trans-final-state-name)))
+	       (sc.chart::resolve-final-state final-states
+					      trans-final-state-name)))
 	 (unless default-state (error "Couldn't determine default states for final states."))
 	 (values default-state history-states)))
       ;; final state completely specified
