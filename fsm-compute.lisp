@@ -8,8 +8,7 @@
 
 
 
-;; (defun get-history-for (state histories)
-;;   )
+
 
 (defun find-state-for (state all-fsm/states)
   (alexandria:if-let (ret (find (sc.key::from-chart-state state) all-fsm/states
@@ -41,7 +40,8 @@
 
   + returns :: on-exit*, on-entry*"
   (labels ((acc (states accessor)
-	     (alexandria:mappend #'(lambda (s) (remove-if #'not (recursive-accumulation s accessor)))
+	     (alexandria:mappend #'(lambda (s)
+				     (remove-if #'not (recursive-accumulation s accessor)))
 				 states)))
     (let+ (((&values in-initial-but-not-final
 		     in-final-but-not-initial)
@@ -53,7 +53,7 @@
 
 
 
-(defun determine-final-states (all-states initial-state transitions)
+(defun determine-final-states (all-states initial-state-name transitions)
   ;;; probably not the most effective, but it seems to work. there is also a lot of
   ;;; consing going on here, so if we find that we have a performance problem upon
   ;;; creating a sc, start here.
@@ -61,9 +61,7 @@
 	  ;; join the transitions names if more than one transition exists; if we have
 	  ;; transitions that are incompatible, it should be noticed when joining the
 	  ;; names
-	  (cond ((not transitions)
-		 (error "No transitions found for initial state: ~a ?" initial-state))
-		((= (length transitions) 1)
+	  (cond ((= (length transitions) 1)
 		 (values (sc.fsm::initial-state-name (first transitions))
 			 (sc.fsm::final-state-name (first transitions))))
 		(t
@@ -77,25 +75,23 @@
 				    all-states trans-final-state-name))
 	    tfsn (error "Couldn't find states described by final-state: ~a of transition: ~a"
 			trans-final-state-name trans-final-state-name)))
-	 ;; since we work on state-names, create one for INITIAL-STATE
-	 (full-initial-state-name (sc.key::from-chart-state initial-state))
 	 ;; calculate the states that are defined in the current state (as given by
-	 ;; FULL-INITIAL-STATE-NAME) but are not described by the initial-state of
+	 ;; INITIAL-STATE-NAME) but are not described by the initial-state of
 	 ;; TRANSITIONS
-	 (in-current-state-but-not-trans (sc.key::difference full-initial-state-name
+	 (in-current-state-but-not-trans (sc.key::difference initial-state-name
 							     trans-init-state-name
 							     :accept-unspecified-substate t))
 	 ;; select FINAL-STATES from possible states such that orthogonal states not
 	 ;; affected by TRANSITIONS stay the same 
 	 (final-states
 	  (cond
-	    ;; FULL-INITIAL-STATE-NAME might be a more specific or state, so it will be
+	    ;; INITIAL-STATE-NAME might be a more specific or state, so it will be
 	    ;; return, e.g: ("A" ("Z" "X")), ("A" "Y") => ("A" ("Z" "X"))
 	    ;;
 	    ;; if that is the case, all states described by the final-state-name from
 	    ;; TRANSITIONS are possible
 	    ((and in-current-state-but-not-trans
-		  (sc.key::state= in-current-state-but-not-trans full-initial-state-name))
+		  (sc.key::state= in-current-state-but-not-trans initial-state-name))
 	     possible-final-state-names)
 	    ;; when we have orthogonal states not described by TRANSITIONS, e.g.:
 	    ;;
@@ -163,16 +159,30 @@
   (mapcar #'(lambda (state) (push target (targets-with-history state)))
 	  history-fsm-states))
 
-(defun set-transition-target (initial-state event-name
-			      combined-transitions all-fsm/states all-states)
+(defun remove-guarded (combined-transitions initial-state-name)
+  (remove-if #'(lambda (tr)
+		 (let+ (((&slots clause) tr))
+		   (when (typep clause 'sc.dsl::when-in-state-clause)
+		     (sc.key::difference (sc.dsl::in-state clause)
+					 initial-state-name
+					 :accept-unspecified-substate t))))
+	     combined-transitions))
+
+(defun set-transition-target (initial-state event-name combined-transitions
+			      all-fsm/states all-states)
   (let+ ((initial-fsm/state (find-state-for initial-state all-fsm/states))
+	 ;; since we work on state-names, create one for INITIAL-STATE
+	 (initial-state-name (sc.key::from-chart-state initial-state))
+	 (transitions (remove-guarded combined-transitions initial-state-name))
+	 ;; transitions could have been cleared at this point
+	 (nil (when (not transitions) (return-from set-transition-target)))
 	 ((&values default-final-state history-states)
-	  (determine-final-states all-states initial-state combined-transitions))
+	  (determine-final-states all-states initial-state-name transitions))
 	 (default-final-fsm/state (find-state-for default-final-state all-fsm/states))
-	 (clauses (mapcar #'clause combined-transitions)) 
+	 (clauses (mapcar #'clause transitions)) 
 	 ((&values on-exit-actions on-entry-actions)
 	  (determine-entry/exit-actions initial-state default-final-state))
-	 (on-reentry-actions (get-reentry-actions default-final-state combined-transitions))
+	 (on-reentry-actions (get-reentry-actions default-final-state transitions))
 	 (target (make-fsm/target on-entry-actions on-exit-actions on-reentry-actions
 				  initial-state default-final-state
 				  clauses default-final-fsm/state))

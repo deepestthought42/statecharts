@@ -77,27 +77,37 @@
 (defmethod compute-transitions ((s t) super-state  dsl-element) '())
 
 
-(defun %make-clause (clause chart-element super-state)
+(defgeneric %make-clause (clause chart-element super-state))
+
+(defmethod %make-clause ((clause sc.dsl::transition-clause) chart-element super-state)
   (let+ ((fs-description (sc.dsl::final-state clause))
 	 (fs (sc.key::from-description fs-description chart-element super-state)))
     (sc.utils::copy-object clause :final-state fs)))
 
+(defmethod %make-clause ((clause sc.dsl::when-in-state-clause) chart-element super-state)
+  (let+ ((fs-description (sc.dsl::final-state clause))
+	 (in-state-description (sc.dsl::in-state clause))
+	 (fs (sc.key::from-description fs-description chart-element super-state))
+	 (is (sc.key::from-description in-state-description chart-element super-state)))
+    (sc.utils::copy-object clause :final-state fs :in-state is)))
 
 (defun %make-transitions (elements super-state chart-element)
   (iter outer
     (for el in elements)
     (when (typep el 'sc.dsl::transition)
       (for initial-state-name
-	   = (sc.key::from-description (sc.dsl::initial-state el) chart-element super-state))
+	   = (sc.key::from-description (sc.dsl::initial-state el)
+				       chart-element super-state))
       (for clauses
-	   = (mapcar #'(lambda (c) (%make-clause c chart-element super-state)) (sc.dsl::clauses el)))
+	   = (mapcar #'(lambda (c) (%make-clause c chart-element super-state))
+		     (sc.dsl::clauses el)))
       (collect
 	  (make-instance 'sc.chart::transition :event-name (sc.dsl::event-symbol el)
-					    :initial-state-name initial-state-name
-					    :clauses clauses)))))
+					       :initial-state-name initial-state-name
+					       :clauses clauses)))))
 
 
-(defmethod compute-transitions ((s sc.dsl::cluster) super-state  dsl-element)
+(defmethod compute-transitions ((s sc.dsl::state-with-substates) super-state  dsl-element)
   (let+ (((&slots sc.dsl::name sc.dsl::elements) s)
 	 (super-state (append super-state (list sc.dsl::name)))
 	 (transitions-for-sub-states
@@ -107,15 +117,6 @@
     (append transitions-for-sub-states
 	    (%make-transitions sc.dsl::elements super-state  dsl-element))))
 
-(defmethod compute-transitions ((s sc.dsl::orthogonal) super-state  dsl-element)
-  (let+ (((&slots sc.dsl::name sc.dsl::elements) s)
-	 (super-state (append super-state (list sc.dsl::name)))
-	 (transitions-for-sub-states
-	  (iter
-	    (for el in sc.dsl::elements)
-	    (appending (compute-transitions el super-state  dsl-element)))))
-    (append transitions-for-sub-states
-	    (%make-transitions sc.dsl::elements super-state  dsl-element))))
 
 
 ;;; accumulate events

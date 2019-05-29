@@ -24,24 +24,28 @@
 					     :test #'string=))
 	       sub-s (throw-invalid "Could not find state with name: ~a" state)))
 	   (make-and (state %element states-description)
-	     (let+ ((sub-states (cond
-				  ;; multiple sub-states
-				  ((listp (first states-description))
-				   (iter
-				     (for sub-state in states-description)
-				     (for s-name = (first sub-state))
-				     (cond
-				       ((not (stringp s-name))
-					(throw-invalid "State name not a string: ~a" s-name))
-				       (t (collect (%make-state-name
-						    sub-state (find-element s-name (sc.dsl::elements %element))))))))
-				  ;; direct sub-state
-				  ((stringp (first states-description))
-				   (list (%make-state-name
-					  states-description
-					  (find-element (first states-description)
-							(sc.dsl::elements %element)))))))
-		    (no-duplicates (remove-duplicates sub-states :test #'string= :key #'name)))
+	     (let+ ((sub-states
+		     (cond
+		       ;; multiple sub-states
+		       ((listp (first states-description))
+			(iter
+			  (for sub-state in states-description)
+			  (for s-name = (first sub-state))
+			  (cond
+			    ((not (stringp s-name))
+			     (throw-invalid "State name not a string: ~a" s-name))
+			    (t (collect
+				   (%make-state-name
+				    sub-state
+				    (find-element s-name (sc.dsl::elements %element))))))))
+		       ;; direct sub-state
+		       ((stringp (first states-description))
+			(list (%make-state-name
+			       states-description
+			       (find-element (first states-description)
+					     (sc.dsl::elements %element)))))))
+		    (no-duplicates
+		     (remove-duplicates sub-states :test #'string= :key #'name)))
 	       (if (not (= (length sub-states)
 			   (length no-duplicates)))
 		   (throw-invalid "Found duplicate substate definitions for: ~a"
@@ -66,9 +70,12 @@
 				 (cond
 				   ((not (first rest)) nil)
 				   ((stringp (first rest))
-				    (%make-state-name rest (find-element (first rest)
-									 (sc.dsl::elements %element))))
-				   (t (throw-invalid "Invalid state syntax: ~a" (first rest))))))
+				    (%make-state-name
+				     rest (find-element (first rest)
+							(sc.dsl::elements %element))))
+				   (t
+				    (throw-invalid "Invalid state syntax: ~a"
+						   (first rest))))))
 		 ;; leaf state
 		 ((and (typep %element 'sc.dsl::state)
 		       (not (typep %element 'sc.dsl::cluster)))

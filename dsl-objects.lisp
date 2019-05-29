@@ -9,7 +9,8 @@
 	   #:s
 	   #:d
 	   #:if-in-state
-	   #:act))
+	   #:act
+	   #:when-in-state))
 
 (in-package #:statecharts.dsl)
 
@@ -91,8 +92,10 @@
 
 
 (sc.utils::define-copy-object-method (transition-clause) final-state)
+(sc.utils::define-copy-object-method (when-in-state-clause) final-state in-state)
 (sc.utils::define-copy-object-method (otherwise-clause) final-state)
 (sc.utils::define-copy-object-method (guard-clause) final-state code fun)
+
 
 (defgeneric applicable (target environment)
   (:method ((clause transition-clause) environment) t)

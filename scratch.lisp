@@ -192,7 +192,11 @@
 	(sc:-> "ev" "a"
 	       (cond (e)
 		     ((>= (counter e) 2) "b")
-		     (otherwise "a")))
+		     (otherwise "a")
+		     ;; (if-in-state '(:/ "outer" "right" "a") "b")
+		     ))
+	(sc:-> "ev_2" "a"
+	       (if-in-state '(:/ "outer" "right" "b") "c"))
 	(sc:-> "ev" "b" "c")
 	(sc:-> "ev" "c" "a"))
       (sc:s "b")
@@ -205,8 +209,8 @@
     (sc:c "right" (sc:d "a")
       (sc:s "a")
       (sc:s "b")
-      (sc:-> "ev" "a" "b")
-      (sc:-> "ev" "b" "a"))))
+      (sc:-> "ev_r" "a" "b")
+      (sc:-> "ev_r" "b" "a"))))
 
 (defstatechart (sc/regress)
   (sc:o "ortho" ()
@@ -227,6 +231,8 @@
 				    (sc:create-fsm-runtime sc/test :debug t)))
 
 
+(signal-event *test* '|ev_r|)
+(signal-event *test* '|ev_2|)
 (signal-event *test* '|ev|)
 (signal-event *test* '|out|)
 (signal-event *test* '|in|)

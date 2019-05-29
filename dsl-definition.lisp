@@ -10,11 +10,18 @@
       (typep thing 'list)))
 
 
+
+
 (defun parse-guard-clause (clause environment-symbol)
   (match clause
     ((guard (list (or 't 'otherwise) final-state)
 	    (key-type-p final-state))
      `(make-instance 'sc.dsl::otherwise-clause :final-state ,final-state))
+    ((guard  (list (or 'if-in-state 'when-in-state) in-state final-state)
+    	     (and (key-type-p final-state)
+    		  (key-type-p in-state)))
+     `(make-instance 'sc.dsl::when-in-state-clause :final-state ,final-state
+						   :in-state ,in-state))
     ((guard (list code final-state)
 	    (key-type-p final-state))
      `(make-instance 'sc.dsl::guard-clause :final-state ,final-state
@@ -28,15 +35,16 @@
   (match final
     ((or (type string) (type symbol))
      `(list (make-instance 'sc.dsl::transition-clause :final-state ,final)))
-    ;; ((guard  (list 'if-in-state in-state final-state)
-    ;; 	     (and (key-type-p final-state)
-    ;; 		  (key-type-p in-state)))
-    ;;  `(list (make-instance 'sc.dsl::when-in-state-clause :final-state ,final-state
-    ;; 							 :in-state ,in-state)))
+    ((guard  (list (or 'if-in-state 'when-in-state) in-state final-state)
+    	     (and (key-type-p final-state)
+    		  (key-type-p in-state)))
+     `(list (make-instance 'sc.dsl::when-in-state-clause :final-state ,final-state
+    							 :in-state ,in-state)))
     ((cons (or 'cond 'guard) (cons (or (cons environment-symbol _) (list)) clauses))
      (if (not clauses)
 	 (error "Couldn't parse final state specification: ~a" final))
-     `(list ,@(mapcar #'(lambda (clause) (parse-guard-clause clause environment-symbol)) clauses)))
+     `(list ,@(mapcar #'(lambda (clause) (parse-guard-clause clause environment-symbol))
+		      clauses)))
     (otherwise (error "Couldn't parse final state specification: ~a" final))))
 
 
@@ -45,7 +53,8 @@
 
 
 ;;;; helper macros
-(defmacro %superstate (type name state-selector default-state description entry exit reentry sub-states)
+(defmacro %superstate (type name state-selector default-state description
+		       entry exit reentry sub-states)
   (ecase type
     (cluster
      `(let ((sub-states (list ,@sub-states)))
@@ -54,18 +63,18 @@
 		   :default-state ,default-state
 		   :cluster ,name))
 	(make-instance 'sc.dsl::cluster :name ,name :description ,description
-						 :on-entry ,entry
-						 :on-exit ,exit
-						 :on-reentry ,reentry
-						 :selector-type ',state-selector
-						 :default-state ,default-state
-						 :elements sub-states)))
+					:on-entry ,entry
+					:on-exit ,exit
+					:on-reentry ,reentry
+					:selector-type ',state-selector
+					:default-state ,default-state
+					:elements sub-states)))
     (orthogonal
      `(make-instance 'sc.dsl::orthogonal :name ,name :description ,description
-						  :on-entry ,entry
-						  :on-reentry ,reentry
-						  :on-exit ,exit
-						  :elements (list ,@sub-states)))))
+					 :on-entry ,entry
+					 :on-reentry ,reentry
+					 :on-exit ,exit
+					 :elements (list ,@sub-states)))))
 
 ;;; statechart definition language
 
