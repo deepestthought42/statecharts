@@ -19,6 +19,9 @@
   ((sub-states :initarg :sub-states :accessor sub-states 
 	       :initform (error "Must initialize sub-states."))))
 
+(defmethod initialize-instance :after ((obj and-state) &key)
+  (setf (sub-states obj) (sort (sub-states obj) #'string< :key #'name)))
+
 
 (defmethod print-object ((obj state) stream)
   (print-unreadable-object (obj stream)
@@ -49,4 +52,22 @@
   (format stream ")"))
 
 
+(defclass hashed-state (state sc.utils::hashed) ())
+(defclass hashed-or-state (or-state sc.utils::hashed) ())
+(defclass hashed-and-state (and-state sc.utils::hashed) ())
+
+
+
+(defmethod sc.utils::create-hashed ((state state))
+  (make-instance 'hashed-state :name (name state)))
+
+(defmethod sc.utils::create-hashed ((state or-state))
+  (make-instance 'hashed-or-state
+		 :name (name state)
+		 :sub-state (sub-state state)))
+
+(defmethod sc.utils::create-hashed ((state and-state))
+  (make-instance 'hashed-and-state
+		 :name (name state)
+		 :sub-states (sub-states state)))
 

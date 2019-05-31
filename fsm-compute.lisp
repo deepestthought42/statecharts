@@ -11,10 +11,11 @@
 
 
 (defun find-state-for (state all-fsm/states)
-  (let+ ((key (sc.key::from-chart-state state)))
-    (alexandria:if-let (ret (find key
+  (let+ ((key (sc.utils::create-hashed (sc.key::from-chart-state state))))
+    (alexandria:if-let (ret (find (sc.utils::hash key)
 				  all-fsm/states
-				  :key #'name :test #'sc.key::state=))
+				  :key #'(lambda (s) (sc.utils::hash (name s)))
+				  :test #'=))
       ret (error "Huh ? couldn't find fsm state for state: ~a" state))))
 
 

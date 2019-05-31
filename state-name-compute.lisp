@@ -50,7 +50,8 @@
 			   (length no-duplicates)))
 		   (throw-invalid "Found duplicate substate definitions for: ~a"
 				  (mapcar #'name (set-difference sub-states no-duplicates))))
-	       (make-instance 'and-state :name state :sub-states sub-states)))
+	       (make-instance 'and-state :name state
+					 :sub-states sub-states)))
 	   (%make-state-name (%state-description %element)
 	     (let+ (((state &rest rest) %state-description))
 	       (cond
@@ -277,6 +278,9 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
 ;; (defmethod state= ((a state) (b t)) nil)
 ;; (defmethod state= ((a t) (b state)) nil)
 
+(defmethod state= ((a sc.utils::hashed) (b sc.utils::hashed))
+  (= (sc.utils::hash a) (sc.utils::hash b)))
+
 (defmethod state= ((a state) (b state))
   (string= (name a) (name b)))
 
@@ -289,8 +293,8 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
        (= (length (sub-states a))
 	  (length (sub-states b)))
        (iter
-	 (for sa in (stable-sort (copy-seq (sub-states a)) #'string< :key #'name))
-	 (for sb in (stable-sort (copy-seq (sub-states b)) #'string< :key #'name))
+	 (for sa in (sub-states a))
+	 (for sb in (sub-states b))
 	 (if (not (state= sa sb))
 	     (return nil))
 	 (finally (return t)))))

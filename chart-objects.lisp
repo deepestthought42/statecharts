@@ -35,6 +35,10 @@
   ((sub-states :initarg :sub-states :accessor sub-states 
 	       :initform (error "Must initialize sub-states."))))
 
+
+(defmethod initialize-instance :after ((obj s-and) &key)
+  (setf (sub-states obj) (sort (sub-states obj) #'string< :key #'name)))
+
 (defgeneric copy-state (s &key))
 
 (sc.utils::define-copy-object-method (s copy-state)
@@ -273,8 +277,8 @@
 		   (length (sub-states b))))
 	   (error "This shouldn't be possible."))
        (iter
-	 (for sub-a in (stable-sort (copy-seq (sub-states a)) #'< :key #'d-id))
-	 (for sub-b in (stable-sort (copy-seq (sub-states b)) #'< :key #'d-id))
+	 (for sub-a in (sub-states a))
+	 (for sub-b in (sub-states b))
 	 (for (values in-a in-b) = (difference sub-a sub-b))
 	 (appending in-a into in-a-but-not-b)
 	 (appending in-b into in-b-but-not-a)
