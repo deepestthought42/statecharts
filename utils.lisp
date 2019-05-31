@@ -34,3 +34,22 @@
 
 
 (defgeneric %print-object (object stream))
+
+(defun combine-sets (sets)
+  (cond
+    ((= (length sets) 1)
+     (iter
+       (for el in (car sets))
+       (collect (list el))))
+    ((> (length sets) 1)
+     (iter outer
+       (with set = (car sets))
+       (with rest = (combine-sets (cdr sets)))
+       (for el in set)
+       (iter
+	 (for r in rest)
+	 (in outer (collect (append (list el)
+				    (copy-seq r)))))))))
+
+
+(combine-sets '((a) (c) (b d)))

@@ -33,8 +33,6 @@
 
 (defun parse-final-state (final)
   (match final
-    ((or (type string) (type symbol))
-     `(list (make-instance 'sc.dsl::transition-clause :final-state ,final)))
     ((guard  (list (or 'if-in-state 'when-in-state) in-state final-state)
     	     (and (key-type-p final-state)
     		  (key-type-p in-state)))
@@ -45,6 +43,8 @@
 	 (error "Couldn't parse final state specification: ~a" final))
      `(list ,@(mapcar #'(lambda (clause) (parse-guard-clause clause environment-symbol))
 		      clauses)))
+    ((or (type string) (type symbol) (type list))
+     `(list (make-instance 'sc.dsl::transition-clause :final-state ,final)))
     (otherwise (error "Couldn't parse final state specification: ~a" final))))
 
 
@@ -59,7 +59,7 @@
     (cluster
      `(let ((sub-states (list ,@sub-states)))
 	(if (not (find ,default-state sub-states :key #'sc.dsl::name :test #'string=))
-	    (error 'couldnt-find-default-state
+	    (error 'sc.cond::couldnt-find-default-state
 		   :default-state ,default-state
 		   :cluster ,name))
 	(make-instance 'sc.dsl::cluster :name ,name :description ,description

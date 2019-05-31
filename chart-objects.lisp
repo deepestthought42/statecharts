@@ -273,8 +273,8 @@
 		   (length (sub-states b))))
 	   (error "This shouldn't be possible."))
        (iter
-	 (for sub-a in (sort (sub-states a) #'< :key #'d-id))
-	 (for sub-b in (sort (sub-states b) #'< :key #'d-id))
+	 (for sub-a in (stable-sort (copy-seq (sub-states a)) #'< :key #'d-id))
+	 (for sub-b in (stable-sort (copy-seq (sub-states b)) #'< :key #'d-id))
 	 (for (values in-a in-b) = (difference sub-a sub-b))
 	 (appending in-a into in-a-but-not-b)
 	 (appending in-b into in-b-but-not-a)
@@ -289,17 +289,25 @@
 
 
 
-(defgeneric is-partial-default-state (s state-name))
+(defgeneric is-partial-default-state (s state-name fixed))
 
-(defmethod is-partial-default-state ((s s) (state-name sc.key::state)) t)
+(defmethod is-partial-default-state ((s s)
+				     (state-name sc.key::state)
+				     fixed)
+  t)
 
-(defmethod is-partial-default-state ((s s-xor) (state-name sc.key::or-state))
+(defmethod is-partial-default-state ((s s-xor)
+				     (state-name sc.key::or-state)
+				     fixed)
   (if (sc.key::sub-state state-name)
       (is-partial-default-state (sub-state s)
-				(sc.key::sub-state state-name))
+				(sc.key::sub-state state-name)
+				(when fixed (sc.key::sub-state fixed)))
       (is-default-state s)))
 
-(defmethod is-partial-default-state ((s s-and) (state-name sc.key::and-state))
+(defmethod is-partial-default-state ((s s-and)
+				     (state-name sc.key::and-state)
+				     fixed)
   (labels ((%find-state-name (sub-s state-names)
 	     (iter
 	       (for state-name in state-names)
@@ -308,10 +316,11 @@
     (iter
       (for sub-s in (sub-states s))
       (for s-name = (%find-state-name sub-s (sc.key::sub-states state-name)))
+      (for is-fixed = (when fixed
+			    (%find-state-name sub-s (sc.key::sub-states fixed))))
       (cond
-	((and s-name (not (is-partial-default-state sub-s s-name))) (return nil))
-	;; ((and (not s-name) (not (is-default-state sub-s))) (return nil))
-	)
+	((and s-name (not (is-partial-default-state sub-s s-name is-fixed))) (return nil))
+	((and (not s-name) (not is-fixed) (not (is-default-state sub-s))) (return nil)))
       (finally (return t)))))
 
 
@@ -339,15 +348,16 @@
 		 lst-of-states))
 
 
-(defun resolve-final-state (lst-of-states state-name)
-  (let+ ((described-states (get-states-described-by-name lst-of-states state-name))
-	 ;; in theory, these are more states than necessary as not all of
+(defun resolve-final-state (possible-states state-name fixed)
+  (let+ (;; in theory, these are more states than necessary as not all of
 	 ;; history-states will have exits, but keeping track of this is
 	 ;; bothersome; fixme: if this should be a performance issue, we might
 	 ;; wanna fix it
-	 (history-states (remove-if-not #'is-history-state described-states))
-	 (resolved-states (remove-if-not #'(lambda (s) (is-partial-default-state s state-name))
-					 described-states))
+	 (history-states (remove-if-not #'is-history-state possible-states))
+	 (resolved-states
+	  (remove-if-not #'(lambda (s)
+			     (is-partial-default-state s state-name fixed))
+			 possible-states))
 	 (final-state resolved-states))
     (unless (= (length final-state) 1)
       (error "Implementation error resolving default state for: ~a" state-name))

@@ -11,9 +11,11 @@
 
 
 (defun find-state-for (state all-fsm/states)
-  (alexandria:if-let (ret (find (sc.key::from-chart-state state) all-fsm/states
-				:key #'name :test #'sc.key::state=))
-    ret (error "Huh ? couldn't find fsm state for state: ~a" state)))
+  (let+ ((key (sc.key::from-chart-state state)))
+    (alexandria:if-let (ret (find key
+				  all-fsm/states
+				  :key #'name :test #'sc.key::state=))
+      ret (error "Huh ? couldn't find fsm state for state: ~a" state))))
 
 
 
@@ -78,9 +80,10 @@
 	 ;; calculate the states that are defined in the current state (as given by
 	 ;; INITIAL-STATE-NAME) but are not described by the initial-state of
 	 ;; TRANSITIONS
-	 (in-current-state-but-not-trans (sc.key::difference initial-state-name
-							     trans-init-state-name
-							     :accept-unspecified-substate t))
+	 (in-current-state-but-not-trans-name
+	  (sc.key::difference initial-state-name
+			      trans-init-state-name
+			      :accept-unspecified-substate t))
 	 ;; select FINAL-STATES from possible states such that orthogonal states not
 	 ;; affected by TRANSITIONS stay the same 
 	 (final-states
@@ -90,17 +93,17 @@
 	    ;;
 	    ;; if that is the case, all states described by the final-state-name from
 	    ;; TRANSITIONS are possible
-	    ((and in-current-state-but-not-trans
-		  (sc.key::state= in-current-state-but-not-trans initial-state-name))
+	    ((and in-current-state-but-not-trans-name
+		  (sc.key::state= in-current-state-but-not-trans-name initial-state-name))
 	     possible-final-state-names)
 	    ;; when we have orthogonal states not described by TRANSITIONS, e.g.:
 	    ;;
 	    ;; ("A" ("A" "A")^("B" "A")) with transition defined as ("A" ("A" "A")) ->
 	    ;; ("A" ("A" "B"))
 	    
-	    (in-current-state-but-not-trans
+	    (in-current-state-but-not-trans-name
 	     (sc.chart::get-states-described-by-name possible-final-state-names
-						     in-current-state-but-not-trans))
+						     in-current-state-but-not-trans-name))
 	    ;; no orthogonal states involved
 	    (t possible-final-state-names))))
     (cond
@@ -110,7 +113,8 @@
       ((> (length final-states) 1)
        (let+ (((&values default-state history-states)
 	       (sc.chart::resolve-final-state final-states
-					      trans-final-state-name)))
+					      trans-final-state-name
+					      in-current-state-but-not-trans-name)))
 	 (unless default-state (error "Couldn't determine default states for final states."))
 	 (values default-state history-states)))
       ;; final state completely specified
@@ -196,20 +200,6 @@
 
 
 
-(defun combine-sets (sets)
-  (cond
-    ((= (length sets) 1)
-     (iter
-       (for el in (car sets))
-       (collect (list el))))
-    ((> (length sets) 1)
-     (iter outer
-       (with set = (car sets))
-       (with rest = (combine-sets (cdr sets)))
-       (for el in set)
-       (iter
-	 (for r in rest)
-	 (in outer (collect (append (list el) r))))))))
 
 
 
@@ -219,7 +209,7 @@
   (let+ (({c.tr}* (mapcar #'(lambda (tr) (mapcar #'(lambda (c) (cons c tr)) (sc.chart::clauses tr)))
 			  transitions))
 	 
-   	 (combined-{c.tr}* (combine-sets {c.tr}*)))
+   	 (combined-{c.tr}* (sc.utils::combine-sets {c.tr}*)))
     (mapcar #'(lambda ({c.tr}*)
 		(mapcar #'(lambda (c.tr)
 			    (let+ (((c . tr) c.tr)
@@ -236,27 +226,29 @@
 
 
 
+
+(defun find-events/transition-originating-from-state (state all-transitions)
+  (group-by:group-by (remove-if-not
+		      #'(lambda (tr)
+			  (sc.chart::state-described-by-name
+			   state (sc.chart::initial-state-name tr)))
+		      all-transitions)
+		     :key #'sc.chart::event-name :value #'identity))
+
 (defun set-transitions-for-states (all-states all-fsm/states all-transitions)
-  (labels ((find-events/transition-originating-from-state (state)
-	     (group-by:group-by (remove-if-not
-				 #'(lambda (tr)
-				     (sc.chart::state-described-by-name
-				      state (sc.chart::initial-state-name tr)))
-				 all-transitions)
-				:key #'sc.chart::event-name :value #'identity)))
-    (iter 
-      (for initial-state in all-states)
-      ;; for every EVENT-NAME and TRANSITIONS* originating in INITIAL-STATE
-      ;; find and set FINAL-STATE when applying TRANSITIONS* to INITIAL-STATE
-      (iter
-	(for (event-name . transitions)
-	     in (find-events/transition-originating-from-state initial-state))
-	(when transitions
-	  (for combined-by-guards = (combine-trans-by-guards transitions))
-	  (iter
-	    (for transitions in combined-by-guards)
-	    (set-transition-target initial-state event-name
-				   transitions all-fsm/states all-states)))))))
+  (iter
+    (for initial-state in all-states)
+    ;; for every EVENT-NAME and TRANSITIONS* originating in INITIAL-STATE
+    ;; find and set FINAL-STATE when applying TRANSITIONS* to INITIAL-STATE
+    (iter
+      (for (event-name . transitions)
+	   in (find-events/transition-originating-from-state initial-state all-transitions))
+      (when transitions
+	(for combined-by-guards = (combine-trans-by-guards transitions))
+	(iter
+	  (for transitions in combined-by-guards)
+	  (set-transition-target initial-state event-name
+				 transitions all-fsm/states all-states))))))
 
 
 

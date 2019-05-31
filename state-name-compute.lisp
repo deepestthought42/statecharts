@@ -188,7 +188,7 @@
      (alexandria:if-let (substate (intersect-state-names (sub-state a) (sub-state b)))
        (make-instance 'or-state
 		      :name (name a)
-		      :sub-state substate)))
+		      :sub-state (copy substate))))
     (t '())))
 
 (defmethod intersect-state-names ((a and-state) (b and-state))
@@ -200,8 +200,8 @@
 	 (for sub-b = (find (name sub-a) (sub-states b)
 			    :key #'name :test #'string=))
 	 (when (and sub-a sub-b)
-	   (push sub-a substates-a)
-	   (push sub-b substates-b)))
+	   (push (copy sub-a) substates-a)
+	   (push (copy sub-b) substates-b)))
        (alexandria:if-let (subs (remove-if #'not
 					   (mapcar #'intersect-state-names
 						   substates-a substates-b)))
@@ -274,8 +274,8 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
 (defgeneric state= (a b)
   (:documentation "Returns true for objects A, B of type STATE-NAME that are same."))
 
-(defmethod state= ((a state) (b t)) nil)
-(defmethod state= ((a t) (b state)) nil)
+;; (defmethod state= ((a state) (b t)) nil)
+;; (defmethod state= ((a t) (b state)) nil)
 
 (defmethod state= ((a state) (b state))
   (string= (name a) (name b)))
@@ -289,8 +289,8 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
        (= (length (sub-states a))
 	  (length (sub-states b)))
        (iter
-	 (for sa in (sort (sub-states a) #'string< :key #'name))
-	 (for sb in (sort (sub-states b) #'string< :key #'name))
+	 (for sa in (stable-sort (copy-seq (sub-states a)) #'string< :key #'name))
+	 (for sb in (stable-sort (copy-seq (sub-states b)) #'string< :key #'name))
 	 (if (not (state= sa sb))
 	     (return nil))
 	 (finally (return t)))))

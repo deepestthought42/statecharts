@@ -35,40 +35,53 @@
 				    :on-exit (sc.dsl::on-exit cluster)
 				    :default-state sc.dsl::default-state)))))))
 
+
+
+#+nil
+(defun combine-elements (super-lst ortho name) 
+  (cond
+    ((not (cdr super-lst))
+     (mapcar #'(lambda (s)
+		 (make-instance 's-and :sub-states (list s)
+				       :defining-state ortho
+				       :on-entry (sc.dsl::on-entry ortho)
+				       :on-reentry (sc.dsl::on-reentry ortho)
+				       :on-exit (sc.dsl::on-exit ortho)
+				       :name name))
+	     (car super-lst)))
+    (t
+     (let ((states-1 (car super-lst))
+	   (states-n (combine-elements (rest super-lst) ortho name)))
+       (iter
+	 (for s-1 in states-1)
+	 (appending
+	  (mapcar
+	   #'(lambda (s-n)
+	       (make-instance 's-and :name name
+				     :defining-state ortho
+				     :on-entry (sc.dsl::on-entry ortho)
+				     :on-reentry (sc.dsl::on-reentry ortho)
+				     :on-exit (sc.dsl::on-exit ortho)
+				     :sub-states
+				     (append (list s-1)
+					     (sub-states s-n))))
+	   states-n)))))))
+
+
+
 (defmethod compute-substates ((ortho sc.dsl::orthogonal))
   (let+ (((&slots sc.dsl::name sc.dsl::elements) ortho)
-	 (lst-of-lst-of-substates
-	  (remove-if #'not
-		     (mapcar #'(lambda (s) (compute-substates s)) sc.dsl::elements))))
-    (labels ((combine-elements (super-lst) 
-	       (cond
-		 ((not (cdr super-lst))
-		  (mapcar #'(lambda (s)
-			      (make-instance 's-and :sub-states (list s)
-						    :defining-state ortho
-						    :on-entry (sc.dsl::on-entry ortho)
-						    :on-reentry (sc.dsl::on-reentry ortho)
-						    :on-exit (sc.dsl::on-exit ortho)
-						    :name sc.dsl::name))
-			  (car super-lst)))
-		 (t
-		  (let ((states-1 (car super-lst))
-			(states-n (combine-elements (rest super-lst))))
-		    (iter
-		      (for s-1 in states-1)
-		      (appending
-		       (mapcar
-			#'(lambda (s-n)
-			    (make-instance 's-and :name sc.dsl::name
-						  :defining-state ortho
-						  :on-entry (sc.dsl::on-entry ortho)
-						  :on-reentry (sc.dsl::on-reentry ortho)
-						  :on-exit (sc.dsl::on-exit ortho)
-						  :sub-states
-						  (append (list s-1)
-							  (sub-states s-n))))
-			states-n))))))))
-      (combine-elements lst-of-lst-of-substates))))
+	 (set-of-substates
+	  (remove-if #'not (mapcar #'(lambda (s) (compute-substates s)) sc.dsl::elements)))
+	 (combined-substates (sc.utils::combine-sets set-of-substates)))
+    (mapcar #'(lambda (sub-states)
+		(make-instance 's-and :name sc.dsl::name
+				      :defining-state ortho
+				      :on-entry (sc.dsl::on-entry ortho)
+				      :on-reentry (sc.dsl::on-reentry ortho)
+				      :on-exit (sc.dsl::on-exit ortho)
+				      :sub-states sub-states))
+	    combined-substates)))
 
 
 ;;; transitions
