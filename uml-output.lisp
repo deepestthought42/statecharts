@@ -143,10 +143,11 @@
 (defgeneric render-to-uml (root filename &key))
 
 (defmethod render-to-uml ((root sc.dsl::state) filename
-			  &key (if-exists :supersede))
+			  &key (if-exists :supersede) )
   (with-open-file (stream filename
 			  :direction :output :if-exists if-exists)
     (format stream "@startuml~%")
+    (format stream "!pragma svek_trace on~%")
     (format stream "skinparam classFontSize 9~%")
     (format stream "skinparam StateBackgroundColor<<history_state>> White~%")
     (format stream "skinparam StateAttributeFontStyle<<action>> bold~%")

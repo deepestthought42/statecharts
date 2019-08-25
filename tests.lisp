@@ -68,20 +68,19 @@
       (-> "b" "update" "time")
       (-> "d" "time" "date")
       (-> "d" "date" "time"))
-    ;; (c "beep-test" (d "00")
-    ;;   (s "00")
-    ;;   (s "10")
-    ;;   (s "01")
-    ;;   (s "beep")
-    ;;   (-> "b" "00" "10")
-    ;;   (-> "^b" "10" "00")
-    ;;   (-> "b" "01" "beep")
-    ;;   (-> "^b" "beep" "01")
-    ;;   (-> "d" "00" "01")
-    ;;   (-> "^d" "01" "00")
-    ;;   (-> "d" "10" "beep")
-    ;;   (-> "^d" "beep" "10"))
-    ))
+    (c "beep-test" (d "00")
+      (s "00")
+      (s "10")
+      (s "01")
+      (s "beep")
+      (-> "b" "00" "10")
+      (-> "^b" "10" "00")
+      (-> "b" "01" "beep")
+      (-> "^b" "beep" "01")
+      (-> "d" "00" "01")
+      (-> "^d" "01" "00")
+      (-> "d" "10" "beep")
+      (-> "^d" "beep" "10"))))
 
 
 (defparameter /displays/
@@ -107,8 +106,10 @@
     (-> "battery removed" "main" "dead")
     (-> "battery inserted" "dead" "main")))
 
+#+nil  (defstatechart (sc/watch) /watch/)
 
-(defstatechart (sc/watch) /watch/)
+#+nil
+(sb-sprof:with-profiling ()
+  (defstatechart (sc/watch) /watch/))
 
 
-;; (render /watch/ "~/tmp/watch.png")

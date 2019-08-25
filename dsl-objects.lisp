@@ -29,7 +29,8 @@
 
 (defmethod initialize-instance :after ((obj statechart-element) &key)
   (if (not (name obj))
-      (error "Must initialize name for statechart-element.")))
+      (error "Must initialize name for statechart-element."))
+  (setf (name obj) (alexandria:make-keyword (name obj))))
 
 
 
@@ -46,21 +47,25 @@
 		  :initform (error "Must initialize initial-state."))
    (clauses :accessor clauses :initarg :clauses
 	    :initform (error "Need to initialize CLAUSES."))
-   (event-symbol :reader event-symbol)))
+   (event-symbol :accessor event-symbol :reader event-symbol)))
 
 
 (defmethod initialize-instance :after ((obj transition) &key)
-  (setf (slot-value obj 'event-symbol)
-	(alexandria:symbolicate (event obj))))
+  (setf (event-symbol obj) (alexandria:make-keyword (event obj))
+	(initial-state obj)
+	(cond
+	  ((listp (initial-state obj))
+	   (mapcar #'alexandria:make-keyword (initial-state obj)))
+	  (t (alexandria:make-keyword (initial-state obj))))))
 
 
 
 (defun make-transition (initial-name event clauses)
   (labels ((format-name (name)
 	     (cond
-	       ((stringp name) name)
+	       ((or (symbolp name) (stringp name)) name)
 	       ((listp name) (format nil "~{~a~^::~}" name))
-	       (t (error "This should happen.")))))
+	       (t (error "This shouldn't happen.")))))
     (make-instance 'sc.dsl::transition
 		   :name (format nil "~a -> (~{~a~^,~})"
 				 (format-name initial-name)
@@ -73,9 +78,12 @@
   ((final-state :accessor final-state :initarg :final-state
 		:initform (error "Must initialize FINAL-STATE."))))
 
+
+
 (defclass when-in-state-clause (transition-clause)
   ((in-state :accessor in-state :initarg :in-state
 	     :initform (error "Need to initialize IN-STATE."))))
+
 
 (defclass otherwise-clause (transition-clause) ())
 
@@ -128,6 +136,8 @@
   ((selected-state :initarg :selected-state :accessor selected-state 
 		   :initform (error "Must initialize selected-state."))))
 
+(defmethod initialize-instance :after ((ss state-selector) &key)
+  (setf (selected-state ss) (alexandria:make-keyword (selected-state ss))))
 
 (defclass history-selector (state-selector) ()
   (:default-initargs :name "History selector"))
@@ -147,6 +157,9 @@
    (default-state :initarg :default-state :accessor default-state 
 		  :initform (error "Must initialize default-state."))))
 
+
+(defmethod initialize-instance :after ((sws cluster) &key)
+  (setf (default-state sws) (alexandria:make-keyword (default-state sws))))
 
 (defclass orthogonal (state-with-substates) ())
 

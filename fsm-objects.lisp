@@ -18,8 +18,9 @@
 			 :initform '())))
 
 
-(defmethod initialize-instance :after ((state state) &key)
-  (setf (name state) (sc.utils::create-hashed (name state))))
+
+
+
 
 (defmethod print-object ((obj state) stream)
   (print-unreadable-object (obj stream)

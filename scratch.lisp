@@ -160,7 +160,6 @@
 
 
 
-
 (defstatechart (sc/test)
   (sc:o "outer" ()
     (sc:c "test" (sc:d "a")
@@ -177,8 +176,6 @@
 (defclass test-env (environment)
   ((counter :accessor counter :initarg :counter
 	    :initform 0)))
-
-
 
 
 (defstatechart (sc/test)
@@ -232,11 +229,11 @@
 		 (sc:create-fsm-runtime sc/test :debug t)))
 
 
-(signal-event *test* '|ev_r|)
-(signal-event *test* '|ev_2|)
-(signal-event *test* '|ev|)
-(signal-event *test* '|out|)
-(signal-event *test* '|in|)
+(signal-event *test* :|ev_r|)
+(signal-event *test* :|ev_2|)
+(signal-event *test* :|ev|)
+(signal-event *test* :|out|)
+(signal-event *test* :|in|)
 
 (let ((env (make-instance 'test-env
 			  :fsm (sc:create-fsm-runtime sc/test :debug t))))
@@ -245,18 +242,5 @@
   (sc:signal-event env '|ev|)
   (sc:signal-event env '|ev|)
   (sc:signal-event env '|ev|))
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

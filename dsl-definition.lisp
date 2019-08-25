@@ -58,7 +58,7 @@
   (ecase type
     (cluster
      `(let ((sub-states (list ,@sub-states)))
-	(if (not (find ,default-state sub-states :key #'sc.dsl::name :test #'string=))
+	(if (not (find ,default-state sub-states :key #'sc.dsl::name :test #'eq))
 	    (error 'sc.cond::couldnt-find-default-state
 		   :default-state ,default-state
 		   :cluster ,name))

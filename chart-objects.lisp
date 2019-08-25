@@ -131,17 +131,18 @@
 
 (defmethod state=state-name ((state s)
 			     (state-name sc.key::state))
-  (string= (sc.key::name state-name)
+  (eq (sc.key::name state-name)
 	   (name state)))
+
 
 (defmethod state=state-name ((state s-xor)
 			     (state-name sc.key::or-state))
-  (string= (sc.key::name state-name)
+  (eq (sc.key::name state-name)
 	   (name state)))
 
 (defmethod state=state-name ((state s-and)
 			     (state-name sc.key::and-state))
-  (string= (sc.key::name state-name)
+  (eq (sc.key::name state-name)
 	   (name state)))
 
 
@@ -218,7 +219,7 @@
 		 (iter
 		   (for sn in (sc.key::sub-states state-name))
 		   (for s = (find (sc.key::name sn) (sub-states state)
-				  :test #'string= :key #'name))
+				  :test #'eq :key #'name))
 		   (when (not s) (error "Couldn't find substate with name: ~a" sn))
 		   (for explicit = (remove-implicit-substates s sn))
 		   (when explicit (collect explicit)))))))
@@ -236,7 +237,7 @@
 (defmethod is-default-state ((s s-xor))
   (let+ (((&slots default-state sub-state) s))
     (cond
-      ((string= (name sub-state) default-state)
+      ((eq (name sub-state) default-state)
        (is-default-state sub-state))
       ;; no default state
       (t nil))))
