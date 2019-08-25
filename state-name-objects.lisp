@@ -52,9 +52,9 @@
   (format stream ")"))
 
 
-(defclass hashed-state (state sc.utils::hashed) ())
-(defclass hashed-or-state (or-state sc.utils::hashed) ())
-(defclass hashed-and-state (and-state sc.utils::hashed) ())
+(defclass hashed-state (sc.utils::hashed state) ())
+(defclass hashed-or-state (sc.utils::hashed or-state) ())
+(defclass hashed-and-state (sc.utils::hashed and-state) ())
 
 
 
@@ -70,4 +70,14 @@
   (make-instance 'hashed-and-state
 		 :name (name state)
 		 :sub-states (sub-states state)))
+
+
+
+(defstruct state-id
+  (id 0 :type integer)
+  (and-sub-states '() :type list))
+
+
+(defun make-id ())
+
 

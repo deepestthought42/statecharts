@@ -279,7 +279,8 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
 ;; (defmethod state= ((a t) (b state)) nil)
 
 (defmethod state= ((a sc.utils::hashed) (b sc.utils::hashed))
-  (= (sc.utils::hash a) (sc.utils::hash b)))
+  (and (= (sc.utils::hash a) (sc.utils::hash b))
+       (string= (sc.utils::full-name a) (sc.utils::full-name b))))
 
 (defmethod state= ((a state) (b state))
   (string= (name a) (name b)))
@@ -340,18 +341,40 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
 	(t nil)))))
 
 ;;; from-chart-state state-name from s
+(defgeneric from-chart-state (s &optional parent and-parent))
 
-(defgeneric from-chart-state (s))
+(defun shift-parent (parent s)
+  (let+ (((&slots id) parent)
+	 ((&slots sc.chart::no-of-substates sc.chart::id) s))
+    (setf id (ash id sc.chart::no-of-substates)
+	  (ldb (byte 0 sc.chart::no-of-substates) sc.chart::id) 1)))
 
-(defmethod from-chart-state ((s sc.chart::s))
-  (make-instance 'sc.key::state :name (sc.chart::name s)))
+(defmethod from-chart-state ((s sc.chart::s) &optional parent-state-id and-parent)
+  (let+ ((parent-state-id (if parent-state-id parent-state-id (make-state-id))))
+    (shift-parent parent-state-id s)
+    (when and-parent (shift-parent and-parent s))
+    (values (make-instance 'sc.key::state :name (sc.chart::name s))
+	    parent-state-id)))
 
-(defmethod from-chart-state ((s sc.chart::s-xor))
-  (make-instance 'sc.key::or-state
-		 :name (sc.chart::name s)
-		 :sub-state (from-chart-state (sc.chart::sub-state s))))
+(defmethod from-chart-state ((s sc.chart::s-xor) &optional parent-state-id and-parent)
+  (let+ ((parent-state-id (if parent-state-id parent-state-id (make-state-id))))
+    (shift-parent parent-state-id s)
+    (when and-parent (shift-parent and-parent s))
+    (values
+     (make-instance 'sc.key::or-state
+		    :name (sc.chart::name s)
+		    :sub-state (from-chart-state (sc.chart::sub-state s)
+						 parent-state-id and-parent))
+     parent-state-id)))
 
-(defmethod from-chart-state ((s sc.chart::s-and))
-  (make-instance 'sc.key::and-state
-		 :name (sc.chart::name s)
-		 :sub-states (mapcar #'from-chart-state (sc.chart::sub-states s))))
+(defmethod from-chart-state ((s sc.chart::s-and)  &optional parent-state-id and-parent)
+  (let+ ((parent-state-id (if parent-state-id parent-state-id (make-state-id))))
+    (shift-parent parent-state-id s)
+    (when and-parent (shift-parent and-parent s))
+    (values
+     (make-instance 'sc.key::and-state
+		    :name (sc.chart::name s)
+		    :sub-states
+		    (mapcar #'(lambda (sub) (from-chart-state sub parent-state-id and-parent))
+			    (sc.chart::sub-states s)))
+     parent-state-id)))

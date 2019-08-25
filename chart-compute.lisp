@@ -3,23 +3,31 @@
 
 ;;; parse statecharts
 
-(defgeneric compute-substates (s))
 
-(defmethod compute-substates ((s t)) '())
+(defgeneric compute-substates (s &optional id))
 
-(defmethod compute-substates ((s sc.dsl::state))
+(defmethod compute-substates ((s t) &optional id)
+  (declare (ignore id))
+  '())
+
+(defmethod compute-substates ((s sc.dsl::state) &optional (id 0))
   (list (make-instance 's :name (sc.dsl::name s)
+			  :id id
 			  :defining-state s
 			  :on-entry (sc.dsl::on-entry s)
 			  :on-reentry (sc.dsl::on-reentry s)
 			  :on-exit (sc.dsl::on-exit s))))
 
-(defmethod compute-substates ((cluster sc.dsl::cluster))
+
+(defmethod compute-substates ((cluster sc.dsl::cluster) &optional (id 0))
   (let+ (((&slots sc.dsl::name sc.dsl::elements sc.dsl::default-state
-		  sc.dsl::selector-type) cluster))
+		  sc.dsl::selector-type) cluster)
+	 (no-of-substates 0))
     (iter outer
+      (with i = 0)
       (for e in sc.dsl::elements)
-      (for sub-states = (compute-substates e))
+      (for sub-states = (sort (compute-substates e i) #'string< :key #'name))
+      (when sub-states (incf i) (incf no-of-substates))
       (iter
 	(for s in sub-states)
 	(in outer
@@ -28,7 +36,9 @@
 				      (sc::d 's-xor)
 				      (t (error "Unknown selector type: ~a"
 						sc.dsl::selector-type)))
-				    :name sc.dsl::name :sub-state s
+ 				    :name sc.dsl::name :sub-state s
+				    :id id
+				    :no-of-substates no-of-substates
 				    :defining-state cluster 
 				    :on-entry (sc.dsl::on-entry cluster)
 				    :on-reentry (sc.dsl::on-reentry cluster)
@@ -38,19 +48,28 @@
 
 
 
-(defmethod compute-substates ((ortho sc.dsl::orthogonal))
+(defmethod compute-substates ((ortho sc.dsl::orthogonal) &optional (id 0))
   (let+ (((&slots sc.dsl::name sc.dsl::elements) ortho)
+	 (no-of-substates 0)
 	 (set-of-substates
-	  (remove-if #'not (mapcar #'(lambda (s) (compute-substates s)) sc.dsl::elements)))
+	  (iter
+	    (with i = 0)
+	    (for e in sc.dsl::elements)
+	    (for sub-states =  (compute-substates e i))
+	    (when sub-states
+	      (incf i) (incf no-of-substates)
+	      (collect sub-states))))
 	 (combined-substates (sc.utils::combine-sets set-of-substates)))
-    (mapcar #'(lambda (sub-states)
-		(make-instance 's-and :name sc.dsl::name
-				      :defining-state ortho
-				      :on-entry (sc.dsl::on-entry ortho)
-				      :on-reentry (sc.dsl::on-reentry ortho)
-				      :on-exit (sc.dsl::on-exit ortho)
-				      :sub-states sub-states))
-	    combined-substates)))
+    (iter
+      (for sub-states in combined-substates)
+      (collect (make-instance 's-and :name sc.dsl::name
+				     :id id
+				     :no-of-substates no-of-substates
+				     :defining-state ortho
+				     :on-entry (sc.dsl::on-entry ortho)
+				     :on-reentry (sc.dsl::on-reentry ortho)
+				     :on-exit (sc.dsl::on-exit ortho)
+				     :sub-states (sort sub-states #'string< :key #'name))))))
 
 
 ;;; transitions

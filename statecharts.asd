@@ -14,6 +14,7 @@
 		#:split-sequence
 		#:parachute
 		#:queues.simple-queue
+		#:memoize
 		#:fare-quasiquote-extras)
   :serial t
   :components ((:file "utils")

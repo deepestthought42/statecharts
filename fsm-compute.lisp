@@ -12,10 +12,10 @@
 
 (defun find-state-for (state all-fsm/states)
   (let+ ((key (sc.utils::create-hashed (sc.key::from-chart-state state))))
-    (alexandria:if-let (ret (find (sc.utils::hash key)
+    (alexandria:if-let (ret (find key
 				  all-fsm/states
-				  :key #'(lambda (s) (sc.utils::hash (name s)))
-				  :test #'=))
+				  :key #'(lambda (s) (name s))
+				  :test #'sc.key::state=))
       ret (error "Huh ? couldn't find fsm state for state: ~a" state))))
 
 
@@ -65,13 +65,17 @@
 	  ;; transitions that are incompatible, it should be noticed when joining the
 	  ;; names
 	  (cond ((= (length transitions) 1)
-		 (values (sc.fsm::initial-state-name (first transitions))
-			 (sc.fsm::final-state-name (first transitions))))
+		 (values (sc.utils::create-hashed
+			  (sc.fsm::initial-state-name (first transitions)))
+			 (sc.utils::create-hashed
+			  (sc.fsm::final-state-name (first transitions)))))
 		(t
-		 (values (reduce #'sc.key::join
-				 (mapcar #'sc.fsm::initial-state-name transitions))
-			 (reduce #'sc.key::join
-				 (mapcar #'sc.fsm::final-state-name transitions))))))
+		 (values (sc.utils::create-hashed
+			  (reduce #'sc.key::join
+				  (mapcar #'sc.fsm::initial-state-name transitions)))
+			 (sc.utils::create-hashed
+			  (reduce #'sc.key::join
+				  (mapcar #'sc.fsm::final-state-name transitions)))))))
 	 ;; try finding states that are described by TRANS-FINAL-STATE-NAME
 	 (possible-final-state-names
  	  (alexandria:if-let (tfsn (sc.chart::get-states-described-by-name
@@ -82,9 +86,10 @@
 	 ;; INITIAL-STATE-NAME) but are not described by the initial-state of
 	 ;; TRANSITIONS
 	 (in-current-state-but-not-trans-name
-	  (sc.key::difference initial-state-name
-			      trans-init-state-name
-			      :accept-unspecified-substate t))
+	  (alexandria:if-let (key (sc.key::difference initial-state-name
+						      trans-init-state-name
+						      :accept-unspecified-substate t))
+	    (sc.utils::create-hashed key)))
 	 ;; select FINAL-STATES from possible states such that orthogonal states not
 	 ;; affected by TRANSITIONS stay the same 
 	 (final-states

@@ -227,8 +227,9 @@
 
 (sc:render sc/test "/home/renee/tmp/scratch.png")
 
-(defparameter *test* (make-instance 'test-env :fsm
-				    (sc:create-fsm-runtime sc/test :debug t)))
+(defparameter *test*
+  (make-instance 'test-env :fsm
+		 (sc:create-fsm-runtime sc/test :debug t)))
 
 
 (signal-event *test* '|ev_r|)

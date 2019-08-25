@@ -17,7 +17,9 @@
    (defining-state :initarg :defining-state :accessor defining-state :initform nil)
    (on-entry :accessor on-entry :initarg :on-entry :initform '())
    (on-reentry :accessor on-reentry :initarg :on-reentry :initform '())
-   (on-exit :accessor on-exit :initarg :on-exit :initform '())))
+   (on-exit :accessor on-exit :initarg :on-exit :initform '())
+   (no-of-substates :accessor no-of-substates :initarg :no-of-substates :initform 0)
+   (id :accessor id :initarg :id :initform (error "Need to initialize ID."))))
 
 
 
@@ -42,13 +44,13 @@
 (defgeneric copy-state (s &key))
 
 (sc.utils::define-copy-object-method (s copy-state)
-  name defining-state on-entry on-reentry on-exit)
+  name defining-state on-entry on-reentry on-exit id)
 
 (sc.utils::define-copy-object-method (s-xor copy-state)
-  name defining-state on-entry on-reentry on-exit sub-state default-state)
+  name defining-state on-entry on-reentry on-exit sub-state default-state id)
 
 (sc.utils::define-copy-object-method (s-and copy-state)
-  name defining-state on-entry on-reentry on-exit sub-states)
+  name defining-state on-entry on-reentry on-exit sub-states id)
 
 
 (defgeneric get-leaf (s)
@@ -343,7 +345,6 @@
     (when (is-history-state sub-s)
       (return t))
     (finally (return nil))))
-
 
 
 
