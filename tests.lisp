@@ -110,6 +110,8 @@
 
 #+nil
 (sb-sprof:with-profiling ()
-  (defstatechart (sc/watch) /watch/))
+  (defstatechart (sc/watch) /watch/)
+
+  )
 
 

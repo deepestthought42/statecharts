@@ -58,7 +58,8 @@
   (ecase type
     (cluster
      `(let ((sub-states (list ,@sub-states)))
-	(if (not (find ,default-state sub-states :key #'sc.dsl::name :test #'eq))
+	(if (not (find ,(alexandria:make-keyword default-state)
+		       sub-states :key #'sc.dsl::name :test #'equal))
 	    (error 'sc.cond::couldnt-find-default-state
 		   :default-state ,default-state
 		   :cluster ,name))
