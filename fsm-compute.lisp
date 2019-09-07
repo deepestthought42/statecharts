@@ -82,10 +82,9 @@
 	 ;; INITIAL-STATE-NAME) but are not described by the initial-state of
 	 ;; TRANSITIONS
 	 (in-current-state-but-not-trans-name
-	  (alexandria:if-let (key (sc.key::difference initial-state-name
+	  (sc.key::difference initial-state-name
 						      trans-init-state-name
 						      :accept-unspecified-substate t))
-	    key))
 	 ;; select FINAL-STATES from possible states such that orthogonal states not
 	 ;; affected by TRANSITIONS stay the same 
 	 (final-states
@@ -102,7 +101,6 @@
 	    ;;
 	    ;; ("A" ("A" "A")^("B" "A")) with transition defined as ("A" ("A" "A")) ->
 	    ;; ("A" ("A" "B"))
-	    
 	    (in-current-state-but-not-trans-name
 	     (sc.chart::get-states-described-by-name possible-final-state-names
 						     in-current-state-but-not-trans-name))

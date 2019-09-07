@@ -210,17 +210,19 @@
       (sc:-> "ev_r" "b" "a"))))
 
 (defstatechart (sc/regress)
-  (sc:o "ortho" ()
-    (sc:c "top" (sc:d "a")
-      (sc:c "a" (sc:d "a")
-	(sc:s "a")
-	(sc:s "b"))
-      (sc:-> "in" "b" "a")
-      (sc:-> "out" "b" "a")
-      (sc:s "b"))
-    (sc:c "bottom" (sc:d "a")
-      (sc:s "a")
-      (sc:s "b"))))
+  (sc:o :ortho ()
+    (sc:c :top (sc:d :a)
+      (sc:c :a (sc:d :a)
+	(sc:s :a)
+	(sc:s :b))
+      (sc:-> :in :b :a)
+      (sc:-> :out :b :a)
+      (sc:s :b))
+    (sc:c :bottom (sc:d :a)
+      (sc:s :a)
+      (sc:s :b))))
+
+
 
 (sc:render sc/test "/home/renee/tmp/scratch.png")
 
