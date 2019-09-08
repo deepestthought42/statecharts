@@ -1,22 +1,29 @@
 (in-package #:sc.fsm)
 
 
+(declaim (optimize (speed 3) (safety 1)))
+
 (defun create-states (states)
   (iter
     (for s in states)
-    (collect (make-instance 'sc.fsm::state :name (sc.key::from-chart-state s)))))
+    (for fsm = (make-instance 'sc.fsm::state :name (sc.key::from-chart-state s)))
+    (setf (sc.chart::fsm-state s) fsm)
+    (collect fsm)))
 
 
 
 
 
 (defun find-state-for (state all-fsm/states)
-  (let+ ((key (sc.key::from-chart-state state)))
-    (alexandria:if-let (ret (find key
-				  all-fsm/states
-				  :key #'(lambda (s) (name s))
-				  :test #'sc.key::state=))
-      ret (error "Huh ? couldn't find fsm state for state: ~a" state))))
+  (declare (ignore all-fsm/states))
+  (sc.chart::fsm-state state)
+  ;; (let+ ((key (sc.key::from-chart-state state)))
+  ;;   (alexandria:if-let (ret (find key
+  ;; 				  all-fsm/states
+  ;; 				  :key #'(lambda (s) (name s))
+  ;; 				  :test #'sc.key::state=))
+  ;;     ret (error "Huh ? couldn't find fsm state for state: ~a" state)))
+  )
 
 
 
@@ -172,25 +179,25 @@
 					 :accept-unspecified-substate t))))
 	     combined-transitions))
 
-(defun set-transition-target (initial-state event-name combined-transitions
-			      all-fsm/states all-states)
-  (let+ ((initial-fsm/state (find-state-for initial-state all-fsm/states))
+(defun set-transition-target (initial-chart-s event-name combined-transitions
+			      all-fsm/states all-chart-states)
+  (let+ ((initial-fsm/state (find-state-for initial-chart-s all-fsm/states))
 	 ;; since we work on state-names, create one for INITIAL-STATE
-	 (initial-state-name (sc.key::from-chart-state initial-state))
+	 (initial-state-name (sc.key::from-chart-state initial-chart-s))
 	 (transitions (remove-guarded combined-transitions initial-state-name))
 	 ;; transitions could have been cleared at this point
 	 (nil (when (not transitions) (return-from set-transition-target)))
 	 ((&values default-final-state history-states)
-	  (determine-final-states all-states initial-state-name transitions))
+	  (determine-final-states all-chart-states initial-state-name transitions))
 	 (default-final-fsm/state (find-state-for default-final-state all-fsm/states))
-	 (clauses (mapcar #'clause transitions)) 
+	 (clauses (mapcar #'clause transitions))
 	 ((&values on-exit-actions on-entry-actions)
-	  (determine-entry/exit-actions initial-state default-final-state))
+	  (determine-entry/exit-actions initial-chart-s default-final-state))
 	 (on-reentry-actions (get-reentry-actions default-final-state transitions))
 	 (target (make-fsm/target on-entry-actions on-exit-actions on-reentry-actions
-				  initial-state default-final-state
+				  initial-chart-s default-final-state
 				  clauses default-final-fsm/state))
- 	 (target* (assoc event-name (ev->state initial-fsm/state)))
+	 (target* (assoc event-name (ev->state initial-fsm/state)))
 	 (history-fsm-states (mapcar #'(lambda (s) (find-state-for s all-fsm/states))
 				     history-states)))
     (set-history-updaters target history-fsm-states)

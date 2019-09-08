@@ -12,93 +12,101 @@
 
 ;; fixmee: should have done this with pattern matching ... 
 
+(defun throw-invalid (state-description reason args)
+  (error 'sc.cond::invalid-state-descriptor
+	 :descriptor state-description
+	 :reason (apply #'format nil reason args)))
+
+(defun make-and-state-name (state element states-description)
+  (labels ((%throw (reason &rest args) (%throw states-description reason args)))
+    (let+ ((sub-states
+	    (cond
+	      ;; multiple sub-states
+	      ((listp (first states-description))
+	       (iter
+		 (for sub-state in states-description)
+		 (for s-name = (first sub-state))
+		 (cond
+		   ((not (symbolp s-name))
+		    (%throw "State name not a string: ~a" s-name))
+		   (t (collect
+			  (make-state-name
+			   sub-state
+			   (find-element s-name (sc.dsl::elements element))))))))
+	      ;; direct sub-state
+	      ((symbolp (first states-description))
+	       (list (make-state-name
+		      states-description
+		      (find-element (first states-description)
+				    (sc.dsl::elements element)))))))
+	   (no-duplicates
+	    (remove-duplicates sub-states :test #'eq :key #'name)))
+      (if (not (= (length sub-states)
+		  (length no-duplicates)))
+	  (%throw "Found duplicate substate definitions for: ~a"
+		  (mapcar #'name (set-difference sub-states no-duplicates))))
+      (make-instance 'and-state :name state
+				:sub-states sub-states))))
+
+
+(defun find-element (state elements)
+  (labels ((state-p (obj) (typep obj 'sc.dsl::state)))
+    (alexandria:if-let (sub-s (find state (remove-if-not #'state-p elements)
+				    :key #'sc.dsl::name
+				    :test #'eq))
+      sub-s (throw-invalid state "Could not find state with name: ~a" state))))
+
+(defun make-state-name (state-description element)
+  (labels ((%throw (reason &rest args) (%throw state-description reason args)))
+    (let+ (((state &rest rest) state-description))
+      (cond
+	((not state-description) nil)
+	((not (and (symbolp state)
+		   (eq state (sc.dsl::name element))))
+	 (%throw "Unknown or invalid state name: ~a" state))
+	;; orthogonal cluster
+	((and (typep element 'sc.dsl::orthogonal))
+	 (make-and-state-name state element rest))
+	;; cluster state
+	((and (typep element 'sc.dsl::cluster)
+	      (not (typep element 'sc.dsl::orthogonal)))
+	 (make-instance 'or-state
+			:name state
+			:sub-state
+			(cond
+			  ((not (first rest)) nil)
+			  ((symbolp (first rest))
+			   (make-state-name
+			    rest (find-element (first rest)
+					       (sc.dsl::elements element))))
+			  ((stringp (first rest))
+			   (make-state-name
+			    rest (find-element (alexandria:make-keyword (first rest))
+					       (sc.dsl::elements element))))
+			  (t
+			   (%throw "Invalid state syntax: ~a"
+				   (first rest))))))
+	;; leaf state
+	((and (typep element 'sc.dsl::state)
+	      (not (typep element 'sc.dsl::cluster)))
+	 (make-instance 'state :name state))
+	;;
+	(t (%throw "Couldn't parse key: ~a" state-description))))))
+
 (defun from-description (state-description dsl-element &optional super-state)
   (labels ((to-symbols (params)
 	     (mapcar #'alexandria:make-keyword params))
-	   (throw-invalid (reason &rest args)
-	     (error 'sc.cond::invalid-state-descriptor
-		    :descriptor state-description
-		    :reason (apply #'format nil reason args)))
-	   (state-p (obj) (typep obj 'sc.dsl::state))
-	   (find-element (state elements)
-	     (alexandria:if-let (sub-s (find state (remove-if-not #'state-p elements)
-					     :key #'sc.dsl::name
-					     :test #'eq))
-	       sub-s (throw-invalid "Could not find state with name: ~a" state)))
-	   (make-and (state %element states-description)
-	     (let+ ((sub-states
-		     (cond
-		       ;; multiple sub-states
-		       ((listp (first states-description))
-			(iter
-			  (for sub-state in states-description)
-			  (for s-name = (first sub-state))
-			  (cond
-			    ((not (symbolp s-name))
-			     (throw-invalid "State name not a string: ~a" s-name))
-			    (t (collect
-				   (%make-state-name
-				    sub-state
-				    (find-element s-name (sc.dsl::elements %element))))))))
-		       ;; direct sub-state
-		       ((symbolp (first states-description))
-			(list (%make-state-name
-			       states-description
-			       (find-element (first states-description)
-					     (sc.dsl::elements %element)))))))
-		    (no-duplicates
-		     (remove-duplicates sub-states :test #'eq :key #'name)))
-	       (if (not (= (length sub-states)
-			   (length no-duplicates)))
-		   (throw-invalid "Found duplicate substate definitions for: ~a"
-				  (mapcar #'name (set-difference sub-states no-duplicates))))
-	       (make-instance 'and-state :name state
-					 :sub-states sub-states)))
-	   (%make-state-name (%state-description %element)
-	     (let+ (((state &rest rest) %state-description))
-	       (cond
-		 ((not %state-description) nil)
-		 ((not (and (symbolp state)
-			    (eq state (sc.dsl::name %element))))
-		  (throw-invalid "Unknown or invalid state name: ~a" state))
-		 ;; orthogonal cluster
-		 ((and (typep %element 'sc.dsl::orthogonal))
-		  (make-and state %element rest))
-		 ;; cluster state
-		 ((and (typep %element 'sc.dsl::cluster)
-		       (not (typep %element 'sc.dsl::orthogonal)))
-		  (make-instance 'or-state
-				 :name state
-				 :sub-state
-				 (cond
-				   ((not (first rest)) nil)
-				   ((symbolp (first rest))
-				    (%make-state-name
-				     rest (find-element (first rest)
-							(sc.dsl::elements %element))))
-				   ((stringp (first rest))
-				    (%make-state-name
-				     rest (find-element (alexandria:make-keyword (first rest))
-							(sc.dsl::elements %element))))
-				   (t
-				    (throw-invalid "Invalid state syntax: ~a"
-						   (first rest))))))
-		 ;; leaf state
-		 ((and (typep %element 'sc.dsl::state)
-		       (not (typep %element 'sc.dsl::cluster)))
-		  (make-instance 'state :name state))
-		 ;;
-		 (t (throw-invalid "Couldn't parse key: ~a" %state-description))))))
+	   (%throw (reason &rest args) (%throw state-description reason args)))
     (cond
       ((and (listp state-description)
 	    (equal (first state-description) :/))
-       (%make-state-name (to-symbols (rest state-description)) dsl-element))
+       (make-state-name (to-symbols (rest state-description)) dsl-element))
       ((and super-state (listp state-description))
-       (%make-state-name (to-symbols (append super-state state-description)) dsl-element))
+       (make-state-name (to-symbols (append super-state state-description)) dsl-element))
       ((listp state-description)
-       (%make-state-name (to-symbols (append super-state state-description)) dsl-element))
+       (make-state-name (to-symbols (append super-state state-description)) dsl-element))
       (t
-       (%make-state-name (to-symbols
+       (make-state-name (to-symbols
 			  (append super-state (list state-description)))
 			 dsl-element)))))
 

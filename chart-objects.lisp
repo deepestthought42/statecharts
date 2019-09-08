@@ -19,7 +19,8 @@
    (on-reentry :accessor on-reentry :initarg :on-reentry :initform '())
    (on-exit :accessor on-exit :initarg :on-exit :initform '())
    (no-of-substates :accessor no-of-substates :initarg :no-of-substates :initform 0)
-   (id :accessor id :initarg :id :initform (error "Need to initialize ID."))))
+   (id :accessor id :initarg :id :initform (error "Need to initialize ID."))
+   (fsm-state :accessor fsm-state :initarg :fsm-state)))
 
 
 
