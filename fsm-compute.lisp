@@ -133,7 +133,7 @@
 	  (mapcar #'sc.fsm::initial-state-name
 		  (remove-if #'not transitions
 			     :key #'(lambda (tr) (sc.key::state= (sc.fsm::initial-state-name tr)
-							  (sc.fsm::final-state-name tr))))))
+							    (sc.fsm::final-state-name tr))))))
 	 (joined-reentry-state (if states-with-reentry-actions
 				   (reduce #'sc.key::join states-with-reentry-actions)
 				   (return-from get-reentry-actions '())))

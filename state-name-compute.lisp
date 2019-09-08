@@ -295,9 +295,6 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
 ;; (defmethod state= ((a state) (b t)) nil)
 ;; (defmethod state= ((a t) (b state)) nil)
 
-(defmethod state= ((a sc.utils::hashed) (b sc.utils::hashed))
-  (and (= (sc.utils::hash a) (sc.utils::hash b))
-       (eq (sc.utils::full-name a) (sc.utils::full-name b))))
 
 (defmethod state= ((a state) (b state))
   (eq (name a) (name b)))

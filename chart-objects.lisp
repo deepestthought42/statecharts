@@ -6,8 +6,7 @@
 		guard-clause)
   (:nicknames #:sc.chart))
 
-#+nil
-(declaim (optimize (debug 3) (speed 0) (space 0)))
+#+nil (declaim (optimize (speed 3) (safety 1)))
 
 (in-package #:sc.chart)
 
@@ -133,18 +132,18 @@
 (defmethod state=state-name ((state s)
 			     (state-name sc.key::state))
   (eq (sc.key::name state-name)
-	   (name state)))
+      (name state)))
 
 
 (defmethod state=state-name ((state s-xor)
 			     (state-name sc.key::or-state))
   (eq (sc.key::name state-name)
-	   (name state)))
+      (name state)))
 
 (defmethod state=state-name ((state s-and)
 			     (state-name sc.key::and-state))
   (eq (sc.key::name state-name)
-	   (name state)))
+      (name state)))
 
 
 

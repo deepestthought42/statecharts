@@ -56,16 +56,3 @@
 				    (copy-seq r)))))))))
 
 
-;;; hashing
-
-(defclass hashed ()
-  ((full-name :reader full-name :initarg :full-name)
-   (hash :reader hash :initarg :hash)))
-
-
-(defgeneric create-hashed (state))
-
-(defmethod initialize-instance :after ((obj hashed) &key)
-  (let+ (((&slots full-name hash) obj))
-    (setf full-name (sc.utils::object-str obj) 
-	  hash (sxhash full-name))))

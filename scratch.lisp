@@ -190,8 +190,7 @@
 	       (cond (e)
 		     ((>= (counter e) 2) :b)
 		     (otherwise :a)
-		     ;; (if-in-state '(:/ :outer :right :a) :b)
-		     ))
+		     (if-in-state '(:/ :outer :right :a) :b)))
 	(sc:-> :ev_2 :a
 	       (if-in-state '(:/ :outer :right :b) :c))
 	(sc:-> :ev :b :c)
