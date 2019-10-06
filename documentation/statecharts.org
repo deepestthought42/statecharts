@@ -98,6 +98,7 @@ first thing to come up with, elements of the DSL
    - might be best to store symbols instead of objects and then grab
      (via symbol-function) the function object when constructing the
      fsm
+
 * TODOs 
 ** TODO guard against two substates with the same name
 ** DONE write function to parse conditionals 
@@ -145,13 +146,15 @@ first thing to come up with, elements of the DSL
    first thing to improve perfermonce should be to shorten down the
    amount of time it takes to compare two states.
 
-   *** idea: come up with a unique number for each state
-   - OR states are unique, so we can just substates can be unrolled
-   - AND states will need a sublist and an indicator which of the
-     substates are included
-     - the list will include NIL for substates that are not included
-     - this means upon creation we need to know the total number of
-       sub-states from the chart
+*** idea: come up with a unique number for each state
+- OR states are unique, so we can just substates can be unrolled
+- AND states will need a sublist and an indicator which of the
+  substates are included
+  - the list will include NIL for substates that are not included
+  - this means upon creation we need to know the total number of
+    sub-states from the chart
+**** NA need to unroll stuff when creating the chart states 
+
 * Footnotes
 
 [fn:1] https://www.merriam-webster.com/dictionary/system

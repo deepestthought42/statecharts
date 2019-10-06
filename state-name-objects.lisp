@@ -9,7 +9,8 @@
 
 (defclass state ()
   ((name :initarg :name :accessor name 
-	 :initform (error "Must initialize name."))))
+	 :initform (error "Must initialize name."))
+   (id :accessor id :initarg :id :initform nil)))
 
 (defclass or-state (state)
   ((sub-state :initarg :sub-state :accessor sub-state 
@@ -52,13 +53,7 @@
   (format stream ")"))
 
 
-
-
 (defstruct state-id
-  (id 0 :type integer)
+  (id 0 :type (integer 0))
   (and-sub-states '() :type list))
-
-
-(defun make-id ())
-
 
