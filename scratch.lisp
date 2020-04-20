@@ -1,8 +1,5 @@
 ;; let's start by reproducing Fig. 2 of
 
- 
-
-(in-package #:statecharts)
 (in-package #:statecharts)
 
 (defstatechart (test-states)
@@ -160,19 +157,6 @@
 
 
 
-(defstatechart (sc/test)
-  (sc:o :outer ()
-    (sc:c :test (sc:d :a)
-      (sc:s :a :reentry (act (e) (format t "reentry~%")))
-      (sc:s :b)
-      (sc:-> :ev :a :a)
-      (sc:-> :ev :b :a))
-    (sc:c :fucker upper (sc:d :a)
-      (sc:s :a)
-      (sc:s :b :reentry (act (e) (format t "reentry fucker~%")))
-      (sc:-> :ev :a :b)
-      (sc:-> :ev :b :b))))
-
 (defclass test-env (environment)
   ((counter :accessor counter :initarg :counter
 	    :initform 0)))
@@ -207,6 +191,20 @@
       (sc:s :b)
       (sc:-> :ev_r :a :b)
       (sc:-> :ev_r :b :a))))
+
+
+(defstatechart (sc/test)
+  (sc: :outer ()
+    (sc:c :test (sc:d :a)
+      (sc:s :a :reentry (act (e) (format t "reentry~%")))
+      (sc:s :b)
+      (sc:-> :ev :a :a)
+      (sc:-> :ev :b :a))
+    (sc:c :fucker-upper (sc:d :a)
+      (sc:s :a)
+      (sc:s :b :reentry (act (e) (format t "reentry fucker~%")))
+      (sc:-> :ev :a :b)
+      (sc:-> :ev :b :b))))
 
 (defstatechart (sc/regress)
   (sc:o :ortho ()

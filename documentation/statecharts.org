@@ -112,49 +112,200 @@ first thing to come up with, elements of the DSL
 
 ** DONE for transitions with reentry, find the correct actions to execute
 ** TODO implement history states
-   - easiest way (at least conceptually) :: add a state that fires an event to the
-     last state
-   - the keep up order of events, make sure that history events have highest
-     priority (i.e. get executed before anything else) 
-   - first idea for keep priority of history events highest :: separate queue
-   - I have a vague intuition that there might be a different solution
-     where every cluster has a "shadow" cluster keeping track of the
-     history, but the other option seems to be a lot easier and as
-     long as it is not prohibitive in terms of performance ...
-   - actually, could just introduce a transition with a clause for
-     every substate, certainly the easiest to implement (maybe a bit
-     slower for a dynamic runtime, but for performance critical
-     writing static code is probably called for anyways)
-   - I might still need a separate queue for this, though
+- easiest way (at least conceptually) :: add a state that fires an event to the
+  last state
+- the keep up order of events, make sure that history events have highest
+  priority (i.e. get executed before anything else) 
+- first idea for keep priority of history events highest :: separate queue
+- I have a vague intuition that there might be a different solution
+  where every cluster has a "shadow" cluster keeping track of the
+  history, but the other option seems to be a lot easier and as
+  long as it is not prohibitive in terms of performance ...
+- actually, could just introduce a transition with a clause for
+  every substate, certainly the easiest to implement (maybe a bit
+  slower for a dynamic runtime, but for performance critical
+  writing static code is probably called for anyways)
+- I might still need a separate queue for this, though
 ** what is needed for the transition object
-   - easiest might be to keep a history for every transition the
-     content of which can only be the states that can be reached, so
-     we can branch on that
-   - since we know the initial state fsm state as well, we can
-     completely determine the next fsm state when keeping it with the
-     transitions based on initial and final state
-   - so what we need is to set the history for the transition when
-     exiting the final states associated with it
-   - each transition gets a seperate history so when exiting the fsm
-     state the histories need to be set
-   - this can be done by just adding exit actions to the fsm after
-     determining the final state of the transition
-   - setting the history means changing the final state of the target
-   - how do I mark history states when resolving partial states ?
+- easiest might be to keep a history for every transition the
+  content of which can only be the states that can be reached, so
+  we can branch on that
+- since we know the initial state fsm state as well, we can
+  completely determine the next fsm state when keeping it with the
+  transitions based on initial and final state
+- so what we need is to set the history for the transition when
+  exiting the final states associated with it
+- each transition gets a seperate history so when exiting the fsm
+  state the histories need to be set
+- this can be done by just adding exit actions to the fsm after
+  determining the final state of the transition
+- setting the history means changing the final state of the target
+- how do I mark history states when resolving partial states ?
 ** TODO improve performance
-   we spent most of the time (at the moment) comparing states; so the
-   first thing to improve perfermonce should be to shorten down the
-   amount of time it takes to compare two states.
+let's go at the performance problem in a more structured way:
+*** STARTED measure and document in which functions we spent the most time
+let's profile things. If I remember correctly, most of the time is
+spent comparing state-names. Let's check that is true.
 
-*** idea: come up with a unique number for each state
-- OR states are unique, so we can just substates can be unrolled
-- AND states will need a sublist and an indicator which of the
-  substates are included
-  - the list will include NIL for substates that are not included
-  - this means upon creation we need to know the total number of
-    sub-states from the chart
-**** NA need to unroll stuff when creating the chart states 
+#+BEGIN_SRC lisp
+(in-package :statecharts)
 
+(sb-profile:reset)
+
+(sb-profile:profile statecharts::%create-state-chart
+		    sc.fsm::set-transitions-for-states)
+#+END_SRC
+
+and then create a statechart (or a fixed number to get a more reliable
+count):
+#+NAME: measurement-call
+#+BEGIN_SRC lisp
+(require 'sb-sprof)
+(in-package #:statecharts)
+
+(defclass test-env (environment)
+  ((counter :accessor counter :initarg :counter
+	    :initform 0)))
+
+
+
+(dotimes (v 2000)
+  (defstatechart (sc/test)
+    (sc:o :outer ()
+      (sc:c :left (sc:d :test)
+	(sc:c :test (sc:h :a)
+	  (sc:s :a :reentry (act (e) (incf (counter e)))
+		   :exit (act (e) (setf (counter e) 0)))
+	  (sc:s :b)
+	  (sc:s :c)
+	  (sc:-> :ev :a
+		 (cond (e)
+		       ((>= (counter e) 2) :b)
+		       (otherwise :a)
+		       (if-in-state '(:/ :outer :right :a) :b)))
+	  (sc:-> :ev_2 :a
+		 (if-in-state '(:/ :outer :right :b) :c))
+	  (sc:-> :ev :b :c)
+	  (sc:-> :ev :c :a))
+	(sc:s :b)
+	(sc:s :c)
+	(sc:-> :in :b :test)
+	(sc:-> :in :c :test)
+	(sc:-> :out :test :b)
+	(sc:-> :out :b :c)
+	(sc:-> :out :c :b))
+      (sc:c :right (sc:d :a)
+	(sc:s :a)
+	(sc:s :b)
+	(sc:-> :ev_r :a :b)
+	(sc:-> :ev_r :b :a)))))
+
+#+END_SRC
+
+#+RESULTS: measurement-call
+: NIL
+
+#+BEGIN_SRC lisp :results none
+(sb-profile:report)
+#+END_SRC
+
+| seconds |    gc | consed      | calls  | sec/call | name                                        |
+|---------+-------+-------------+--------+----------+---------------------------------------------|
+|   0.352 | 0.000 | 132,531,296 | 1,101  | 0.000320 | STATECHARTS.FSM::SET-TRANSITIONS-FOR-STATES |
+|   0.024 | 0.000 | 17,428,624  | 24,222 | 0.000001 | STATECHARTS.CHART::COMPUTE-TRANSITIONS      |
+|   0.013 | 0.000 | 7,107,200   | 1,101  | 0.000012 | STATECHARTS.FSM::CREATE-STATES              |
+|   0.000 | 0.000 | 8,040,768   | 24,222 | 0.000000 | STATECHARTS.CHART::COMPUTE-SUBSTATES        |
+|---------+-------+-------------+--------+----------+---------------------------------------------|
+|   0.390 | 0.000 | 165,107,888 | 50,646 |          | Total                                       |
+
+
+So, most of the time is spent in set-transitions-for-states. Let's dig
+into that function a bit:
+
+
+#+BEGIN_SRC lisp :results none
+(in-package :sc.fsm)
+
+(sb-profile:reset)
+
+(sb-profile:unprofile)
+(sb-profile:profile set-transition-target)
+#+END_SRC
+
+#+CALL: measurement-call()
+
+#+RESULTS:
+: NIL
+
+#+BEGIN_SRC lisp :results none
+(sb-profile:report)
+#+END_SRC
+
+
+  8.000001e-9s/call, 1.5699999e-6s total profiling, 7.42e-7s internal profiling
+| seconds |    gc | consed      | calls   | sec/call | name                                                           |
+|---------+-------+-------------+---------+----------+----------------------------------------------------------------|
+|   0.510 | 0.000 | 212,415,008 | 72,000  | 0.000007 | STATECHARTS.FSM::SET-TRANSITION-TARGET                         |
+|   0.072 | 0.000 | 16,940,032  | 20,000  | 0.000004 | STATECHARTS.FSM::FIND-EVENTS/TRANSITION-ORIGINATING-FROM-STATE |
+|   0.011 | 0.000 | 0           | 2,000   | 0.000006 | STATECHARTS.FSM::SET-TRANSITIONS-FOR-STATES                    |
+|   0.001 | 0.000 | 12,745,712  | 64,000  | 0.000000 | STATECHARTS.FSM::COMBINE-TRANS-BY-GUARDS                       |
+|---------+-------+-------------+---------+----------+----------------------------------------------------------------|
+|   0.594 | 0.000 | 242,100,752 | 158,000 |          | Total                                                          |
+
+estimated total profiling overhead: 0.25 seconds
+overhead estimation parameters:
+  8.000001e-9s/call, 1.5699999e-6s total profiling, 7.42e-7s internal profiling
+
+ok, let's dig into set-transition-target:
+
+#+BEGIN_SRC lisp :results none
+(in-package :sc.fsm)
+
+(sb-profile:reset)
+
+(sb-profile:unprofile)
+(sb-profile:profile  find-state-for
+		     determine-final-states sc.key::from-chart-state
+		     sc.chart::get-states-described-by-name)
+#+END_SRC
+
+#+CALL: measurement-call()
+#+RESULTS:
+: NIL
+
+#+BEGIN_SRC lisp :results none
+(sb-profile:report)
+#+END_SRC
+
+| seconds |    gc | consed      | calls     | sec/call | name                                    |
+|---------+-------+-------------+-----------+----------+-----------------------------------------|
+|   0.286 | 0.000 | 59,127,712  | 68,000    | 0.000004 | STATECHARTS.FSM::DETERMINE-FINAL-STATES |
+|   0.000 | 0.007 | 120,527,216 | 1,284,000 | 0.000000 | STATECHARTS.STATE-KEY::FROM-CHART-STATE |
+|   0.000 | 0.000 | 0           | 164,000   | 0.000000 | STATECHARTS.FSM::FIND-STATE-FOR         |
+|---------+-------+-------------+-----------+----------+-----------------------------------------|
+|   0.286 | 0.007 | 179,654,928 | 1,516,000 |          | Total                                   |
+
+
+so, determine-final-states, digging deeper
+
+let's use the statistical profiler for this:
+
+#+BEGIN_SRC lisp
+
+#+END_SRC
+
+*** NA determine how to speed up these functions
+
+*** same idea, just write it down
+boils down to:
+- enumerate /or/ state and all /or/ sub-states thereof
+- create bitfield to record /and/ states and enumerate all /or/ states
+  thereof
+
+but: hwo do I handle or states that only specify a super-state ? 
+
+*** another approach
+when generating fsm states fill a tree structure
 * Footnotes
 
 [fn:1] https://www.merriam-webster.com/dictionary/system

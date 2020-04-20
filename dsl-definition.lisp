@@ -50,8 +50,6 @@
 
 
 
-
-
 ;;;; helper macros
 (defmacro %superstate (type name state-selector default-state description
 		       entry exit reentry sub-states)

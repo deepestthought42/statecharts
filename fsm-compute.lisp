@@ -6,7 +6,8 @@
 (defun create-states (states)
   (iter
     (for s in states)
-    (for fsm = (make-instance 'sc.fsm::state :name (sc.key::from-chart-state s)))
+    (for (values name index) = (sc.key::from-chart-state s))
+    (for fsm = (make-instance 'sc.fsm::state :name name))
     (setf (sc.chart::fsm-state s) fsm)
     (collect fsm)))
 

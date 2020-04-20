@@ -4,7 +4,8 @@
 
 
 (defun %create-state-chart (name root description)
-  (let* ((states (sc.chart::compute-substates root))
+  (let* ((lookup (make-instance 'sc.chart::lookup))
+	 (states (sc.chart::compute-substates root lookup))
 	 (transitions (sc.chart::compute-transitions root '() root))
 	 (fsm-states (sc.fsm::create-states states))
 	 (events (remove-duplicates (mapcar #'sc.chart::event-name transitions)))

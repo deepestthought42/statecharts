@@ -1,33 +1,50 @@
 (in-package #:statecharts.chart)
 
+(define-condition invalid-chart (error)
+  ((reason :accessor reason :initarg :reason
+	   :initform ""))
+  (:report (lambda (c stream)
+	     (format stream "Invalid chart definition: ~a" (reason c)))))
 
-;;; parse statecharts
 
+(defgeneric compute-substates (s &optional lookup))
 
-(defgeneric compute-substates (s &optional id))
-
-(defmethod compute-substates ((s t) &optional id)
-  (declare (ignore id))
+(defmethod compute-substates ((s t) &optional lookup)
+  (declare (ignore lookup))
   '())
 
-(defmethod compute-substates ((s sc.dsl::state) &optional (id 0))
+(defmethod compute-substates ((s sc.dsl::state) &optional lookup)
+  (declare (ignore lookup))
   (list (make-instance 's :name (sc.dsl::name s)
-			  :id id
 			  :defining-state s
 			  :on-entry (sc.dsl::on-entry s)
 			  :on-reentry (sc.dsl::on-reentry s)
 			  :on-exit (sc.dsl::on-exit s))))
 
 
-(defmethod compute-substates ((cluster sc.dsl::cluster) &optional (id 0))
+(defun get-states (elements)
+  (remove-if-not #'(lambda (e) (typep e 'sc.dsl::state)) elements))
+
+(defun sub-states-check (sub-states name &optional (cluster-desc "CLUSTER"))
+  (cond
+    ((not sub-states)
+     (error 'invalid-chart :reason (format nil "~a: >~a< has no sub-states."
+					   cluster-desc name)))
+    ((= 1 (length sub-states))
+     (error 'invalid-chart :reason (format nil "~a: >~a< has only one sub-state."
+					   cluster-desc name)))))
+
+(defmethod compute-substates ((cluster sc.dsl::cluster)
+			      &optional (lookup (make-instance 'lookup)))
   (let+ (((&slots sc.dsl::name sc.dsl::elements sc.dsl::default-state
-		  sc.dsl::selector-type) cluster)
-	 (no-of-substates 0))
+		  sc.dsl::selector-type)
+	  cluster)
+	 (states (get-states sc.dsl::elements)))
+    (sub-states-check states sc.dsl::name)
     (iter outer
-      (with i = 0)
-      (for e in sc.dsl::elements)
-      (for sub-states = (sort (compute-substates e i) #'string< :key #'name))
-      (when sub-states (incf i) (incf no-of-substates))
+      (for e in states)
+      (for unsorted-sub-states = (compute-substates e lookup))
+      (for sub-states = (sort unsorted-sub-states #'string< :key #'name))
       (iter
 	(for s in sub-states)
 	(in outer
@@ -36,10 +53,8 @@
 				      (sc::d 's-xor)
 				      (t (error "Unknown selector type: ~a"
 						sc.dsl::selector-type)))
- 				    :name sc.dsl::name :sub-state s
-				    :id id
-				    :no-of-substates no-of-substates
-				    :defining-state cluster 
+				    :name sc.dsl::name :sub-state s
+				    :defining-state cluster
 				    :on-entry (sc.dsl::on-entry cluster)
 				    :on-reentry (sc.dsl::on-reentry cluster)
 				    :on-exit (sc.dsl::on-exit cluster)
@@ -48,29 +63,36 @@
 
 
 
-(defmethod compute-substates ((ortho sc.dsl::orthogonal) &optional (id 0))
+(defmethod compute-substates ((ortho sc.dsl::orthogonal) &optional (lookup (make-instance 'lookup)))
   (let+ (((&slots sc.dsl::name sc.dsl::elements) ortho)
-	 (no-of-substates 0)
-	 (set-of-substates
+	 (states (get-states sc.dsl::elements))
+	 (substates
 	  (iter
-	    (with i = 0)
 	    (for e in sc.dsl::elements)
-	    (for sub-states =  (compute-substates e i))
-	    (when sub-states
-	      (incf i) (incf no-of-substates)
-	      (collect sub-states))))
-	 (combined-substates (sc.utils::combine-sets set-of-substates)))
+	    (for sub-states = (compute-substates e lookup))
+	    (when sub-states (collect sub-states)))))
+    (sub-states-check states sc.dsl::name "ORTHOGONAL CLUSTER")
+    (alexandria:when-let (non-clusters (remove-if #'(lambda (s) (typep s 'sc.dsl::cluster)) states))
+      (error 'invalid-chart
+	     :reason (format nil "ORTHOGONAL CLUSTER: >~a< has non-cluster sub-state(s): ~{~a ~}"
+			     sc.dsl::name non-clusters)))
     (iter
-      (for sub-states in combined-substates)
+      (for sub-states in (sc.utils::combine-sets substates))
       (collect (make-instance 's-and :name sc.dsl::name
-				     :id id
-				     :no-of-substates no-of-substates
 				     :defining-state ortho
 				     :on-entry (sc.dsl::on-entry ortho)
 				     :on-reentry (sc.dsl::on-reentry ortho)
 				     :on-exit (sc.dsl::on-exit ortho)
 				     :sub-states (sort sub-states #'string< :key #'name))))))
 
+
+;;;; lookup
+
+
+
+(defgeneric calculate-lookup (state defined-in))
+
+(defmethod calculate-lookup ((state )))
 
 ;;; transitions
 

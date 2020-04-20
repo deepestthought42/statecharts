@@ -106,7 +106,8 @@
     (-> "battery removed" "main" "dead")
     (-> "battery inserted" "dead" "main")))
 
-#+nil  (defstatechart (sc/watch) /watch/)
+#+nil
+(defstatechart (sc/watch) /watch/)
 
 #+nil
 (sb-sprof:with-profiling ()

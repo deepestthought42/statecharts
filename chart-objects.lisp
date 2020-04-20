@@ -13,12 +13,12 @@
 
 (defclass s ()
   ((name :initarg :name :accessor name :initform (error "Must initialize name."))
+   (lookup-index :accessor lookup-index :initarg :lookup-index
+		 :initform nil)
    (defining-state :initarg :defining-state :accessor defining-state :initform nil)
    (on-entry :accessor on-entry :initarg :on-entry :initform '())
    (on-reentry :accessor on-reentry :initarg :on-reentry :initform '())
    (on-exit :accessor on-exit :initarg :on-exit :initform '())
-   (no-of-substates :accessor no-of-substates :initarg :no-of-substates :initform 0)
-   (id :accessor id :initarg :id :initform (error "Need to initialize ID."))
    (fsm-state :accessor fsm-state :initarg :fsm-state)))
 
 
@@ -44,13 +44,15 @@
 (defgeneric copy-state (s &key))
 
 (sc.utils::define-copy-object-method (s copy-state)
-  name defining-state on-entry on-reentry on-exit id)
+  name defining-state on-entry on-reentry on-exit lookup-index)
 
 (sc.utils::define-copy-object-method (s-xor copy-state)
-  name defining-state on-entry on-reentry on-exit sub-state default-state id)
+  name defining-state on-entry on-reentry on-exit
+  sub-state default-state lookup-index)
 
 (sc.utils::define-copy-object-method (s-and copy-state)
-  name defining-state on-entry on-reentry on-exit sub-states id)
+  name defining-state on-entry on-reentry on-exit sub-states
+  lookup-index)
 
 
 (defgeneric get-leaf (s)

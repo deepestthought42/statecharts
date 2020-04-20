@@ -355,35 +355,35 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
 	(t nil)))))
 
 ;;; from-chart-state state-name from s
-(defgeneric from-chart-state (s &optional parent))
-
-(defun shift-parent (parent s)
-  (let+ (((&structure state-id- id) parent)
-	 ((&slots sc.chart::no-of-substates sc.chart::id) s))
-    (setf id (ash id sc.chart::no-of-substates)
-	  (ldb (byte 0 sc.chart::no-of-substates) sc.chart::id) 1)))
 
 
-(defmethod from-chart-state ((s sc.chart::s) &optional parent-state-id)
-  (let+ ((parent-state-id (if parent-state-id parent-state-id (make-state-id))))
-    (shift-parent parent-state-id s)
-    (make-instance 'sc.key::state :name (sc.chart::name s)
-				  :id parent-state-id)))
+(defgeneric from-chart-state (s))
 
-(defmethod from-chart-state ((s sc.chart::s-xor) &optional parent-state-id)
-  (let+ ((parent-state-id (if parent-state-id parent-state-id (make-state-id))))
-    (shift-parent parent-state-id s)
+(defun get-lookup (state)
+  (alexandria:if-let (i (sc.chart::lookup-index state))
+    (ash 1 i) 0))
+
+
+(defmethod from-chart-state ((s sc.chart::s))
+  (make-instance 'sc.key::state :name (sc.chart::name s)))
+
+
+(defmethod from-chart-state ((s sc.chart::s-xor))
+  (let ((sub-state (from-chart-state (sc.chart::sub-state s))))
     (make-instance 'sc.key::or-state
 		   :name (sc.chart::name s)
-		   :id parent-state-id
-		   :sub-state (from-chart-state (sc.chart::sub-state s) parent-state-id))))
+		   :sub-state sub-state)))
 
-(defmethod from-chart-state ((s sc.chart::s-and) &optional parent-state-id)
-  (let+ ((parent-state-id (if parent-state-id parent-state-id (make-state-id))))
-    (shift-parent parent-state-id s)
-    (make-instance 'sc.key::and-state
-		   :name (sc.chart::name s)
-		   :id parent-state-id
-		   :sub-states
-		   (mapcar #'(lambda (sub) (from-chart-state sub (make-state-id)))
-			   (sc.chart::sub-states s)))))
+
+(defmethod from-chart-state ((s sc.chart::s-and))
+  (iter
+    (for sub-state in (sc.chart::sub-states s))
+    (for sub-states = (from-chart-state sub-state))
+    (collect sub-states into ret-states)
+    (finally
+     (return (make-instance 'sc.key::and-state
+			      :name (sc.chart::name s)
+			      :sub-states ret-states)))))
+
+
+

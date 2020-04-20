@@ -9,8 +9,7 @@
 
 (defclass state ()
   ((name :initarg :name :accessor name 
-	 :initform (error "Must initialize name."))
-   (id :accessor id :initarg :id :initform nil)))
+	 :initform (error "Must initialize name."))))
 
 (defclass or-state (state)
   ((sub-state :initarg :sub-state :accessor sub-state 
