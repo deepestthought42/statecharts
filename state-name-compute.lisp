@@ -359,11 +359,6 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
 
 (defgeneric from-chart-state (s))
 
-(defun get-lookup (state)
-  (alexandria:if-let (i (sc.chart::lookup-index state))
-    (ash 1 i) 0))
-
-
 (defmethod from-chart-state ((s sc.chart::s))
   (make-instance 'sc.key::state :name (sc.chart::name s)))
 

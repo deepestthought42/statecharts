@@ -4,13 +4,13 @@
 
 
 (defun %create-state-chart (name root description)
-  (let* ((lookup (make-instance 'sc.chart::lookup))
-	 (states (sc.chart::compute-substates root lookup))
+  (let* ((states (sc.chart::compute-substates root))
 	 (transitions (sc.chart::compute-transitions root '() root))
 	 (fsm-states (sc.fsm::create-states states))
-	 (events (remove-duplicates (mapcar #'sc.chart::event-name transitions)))
+	 (events  (remove-duplicates (mapcar #'sc.chart::event-name transitions))
+	   )
 	 (default-state (first (remove-if-not #'sc.chart::is-default-state states))))
-    (sc.fsm::set-transitions-for-states states fsm-states transitions)
+    ;; (sc.fsm::set-transitions-for-states states fsm-states transitions)
     (make-instance 'statecharts::statechart
 		   :name (string name)
 		   :description description
@@ -39,7 +39,8 @@
   (%check-defstatechart-arguments name description definitions)
   (sc.dsl::clear-id)
   `(defparameter ,name (%create-state-chart ',name
-					    (progn ,@definitions)
+					    (let ((sc.dsl::*nth-sub-state* 0))
+					      (progn ,@definitions))
 					    ,description)))
 
 

@@ -48,14 +48,20 @@
     (otherwise (error "Couldn't parse final state specification: ~a" final))))
 
 
+(defparameter *sub-state-of-or* nil)
+(defparameter *nth-sub-state* -1)
 
+(defun get-lookup ()
+  (when *sub-state-of-or*
+    (prog1 *nth-sub-state*
+      (incf *nth-sub-state*))))
 
 ;;;; helper macros
 (defmacro %superstate (type name state-selector default-state description
 		       entry exit reentry sub-states)
   (ecase type
     (cluster
-     `(let ((sub-states (list ,@sub-states)))
+     `(let ((sub-states (let ((*sub-state-of-or* t)) (list ,@sub-states))))
 	(if (not (find ,(alexandria:make-keyword default-state)
 		       sub-states :key #'sc.dsl::name :test #'equal))
 	    (error 'sc.cond::couldnt-find-default-state
@@ -67,13 +73,16 @@
 					:on-reentry ,reentry
 					:selector-type ',state-selector
 					:default-state ,default-state
-					:elements sub-states)))
+					:elements sub-states
+					:is-substate-of-cluster (get-lookup))))
     (orthogonal
      `(make-instance 'sc.dsl::orthogonal :name ,name :description ,description
 					 :on-entry ,entry
 					 :on-reentry ,reentry
 					 :on-exit ,exit
-					 :elements (list ,@sub-states)))))
+					 :elements (let ((*sub-state-of-or* nil))
+						     (list ,@sub-states))
+					 :is-substate-of-cluster (get-lookup)))))
 
 ;;; statechart definition language
 
@@ -103,8 +112,8 @@ functions of one variable and will be called with the ENVIRONMENT as
 their parameter.
 
 => ORTHOGONAL"
-  `(sc.dsl::%superstate orthogonal ,name nil nil
-			,description ,entry ,exit ,reentry ,sub-states))
+   `(sc.dsl::%superstate orthogonal ,name nil nil ,description
+			 ,entry ,exit ,reentry ,sub-states))
 
 (defmacro c (name (state-selector default-state &key (description "")
 						     entry exit reentry)
@@ -142,7 +151,8 @@ with the ENVIRONMENT as their parameter.
 		  :name ,name :description ,description
 		  :on-entry ,entry
 		  :on-reentry ,reentry
-		  :on-exit ,exit))
+		  :on-exit ,exit
+		  :is-substate-of-cluster (get-lookup)))
 
 
 (defmacro act ((&optional (environment-symbol 'env)) &body code)

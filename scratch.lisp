@@ -194,7 +194,7 @@
 
 
 (defstatechart (sc/test)
-  (sc: :outer ()
+  (sc:o :outer ()
     (sc:c :test (sc:d :a)
       (sc:s :a :reentry (act (e) (format t "reentry~%")))
       (sc:s :b)
