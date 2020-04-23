@@ -1,6 +1,6 @@
 (in-package #:sc.fsm)
 
-
+#+nil
 (declaim (optimize (speed 3) (safety 1)))
 
 (defun create-states (states)
@@ -91,8 +91,8 @@
 	 ;; TRANSITIONS
 	 (in-current-state-but-not-trans-name
 	  (sc.key::difference initial-state-name
-						      trans-init-state-name
-						      :accept-unspecified-substate t))
+			      trans-init-state-name
+			      :accept-unspecified-substate t))
 	 ;; select FINAL-STATES from possible states such that orthogonal states not
 	 ;; affected by TRANSITIONS stay the same 
 	 (final-states

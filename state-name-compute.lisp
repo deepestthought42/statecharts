@@ -17,6 +17,10 @@
 	 :descriptor state-description
 	 :reason (apply #'format nil reason args)))
 
+(defun get-identifier (element)
+  (let ((id (sc.dsl::is-substate-of-cluster element)))
+    (if id (ash 1 id) 0)))
+
 (defun make-and-state-name (state element states-description)
   (labels ((%throw (reason &rest args) (%throw states-description reason args)))
     (let+ ((sub-states
@@ -46,6 +50,10 @@
 	  (%throw "Found duplicate substate definitions for: ~a"
 		  (mapcar #'name (set-difference sub-states no-duplicates))))
       (make-instance 'and-state :name state
+				:identifier
+				(reduce #'logior sub-states
+					:key #'identifier
+					:initial-value (get-identifier element)) 
 				:sub-states sub-states))))
 
 
@@ -70,26 +78,31 @@
 	;; cluster state
 	((and (typep element 'sc.dsl::cluster)
 	      (not (typep element 'sc.dsl::orthogonal)))
-	 (make-instance 'or-state
-			:name state
-			:sub-state
-			(cond
-			  ((not (first rest)) nil)
-			  ((symbolp (first rest))
-			   (make-state-name
-			    rest (find-element (first rest)
-					       (sc.dsl::elements element))))
-			  ((stringp (first rest))
-			   (make-state-name
-			    rest (find-element (alexandria:make-keyword (first rest))
-					       (sc.dsl::elements element))))
-			  (t
-			   (%throw "Invalid state syntax: ~a"
-				   (first rest))))))
+	 (let ((sub-state (cond
+			    ((not (first rest)) nil)
+			    ((symbolp (first rest))
+			     (make-state-name
+			      rest (find-element (first rest)
+						 (sc.dsl::elements element))))
+			    ((stringp (first rest))
+			     (make-state-name
+			      rest (find-element (alexandria:make-keyword (first rest))
+						 (sc.dsl::elements element))))
+			    (t
+			     (%throw "Invalid state syntax: ~a"
+				     (first rest))))))
+	   (make-instance 'or-state
+			  :name state
+			  :identifier (logior (get-identifier element)
+					      (if sub-state
+						  (identifier sub-state)
+						  0))
+			  :sub-state sub-state)))
 	;; leaf state
 	((and (typep element 'sc.dsl::state)
 	      (not (typep element 'sc.dsl::cluster)))
-	 (make-instance 'state :name state))
+	 (make-instance 'state :name state
+			       :identifier (get-identifier element)))
 	;;
 	(t (%throw "Couldn't parse key: ~a" state-description))))))
 
@@ -116,11 +129,13 @@
 (defgeneric copy (state))
 
 (defmethod copy ((sn state))
-  (make-instance 'state :name (name sn)))
+  (make-instance 'state :name (name sn)
+			:identifier (identifier sn)))
 
 (defmethod copy ((sn or-state))
   (make-instance 'or-state
 		 :name (name sn)
+		 :identifier (identifier sn)
 		 :sub-state
 		 (if (sub-state sn)
 		     (copy (sub-state sn)))))
@@ -128,6 +143,7 @@
 (defmethod copy ((sn and-state))
   (make-instance 'and-state
 		 :name (name sn)
+		 :identifier (identifier sn)
 		 :sub-states
 		 (mapcar #'copy (sub-states sn))))
 
@@ -159,15 +175,19 @@
 (defmethod join ((a state) (b state))
   (cond
     ((eq (name a) (name b))
-     (make-instance 'state :name (name a)))
+     (make-instance 'state :name (name a)
+			   :identifier (identifier a)))
     (t (throw-couldnt-join-state-names a b "States do no not match."))))
 
 (defmethod join ((a or-state) (b or-state))
   (cond
     ((eq (name a) (name b))
-     (make-instance 'or-state
-		    :name (name a)
-		    :sub-state (join (sub-state a) (sub-state b))))
+     (let ((substate (join (sub-state a) (sub-state b))))
+       (make-instance 'or-state
+		      :name (name a)
+		      :identifier (logior (identifier a)
+					  (if substate (identifier substate) 0))
+		      :sub-state substate)))
     (t (throw-couldnt-join-state-names a b "States do no not match."))))
 
 (defmethod join ((a and-state) (b and-state))
@@ -185,7 +205,12 @@
 		   (sb (collect sb)))))))
     (cond
       ((eq (name a) (name b))
-       (make-instance 'and-state :name (name a) :sub-states (app-sns)))
+       (let ((substates (app-sns)))
+	 (make-instance 'and-state :name (name a)
+				   :identifier (reduce #'logior substates
+						       :key #'identifier
+						       :initial-value (identifier a))
+				   :sub-states substates)))
       (t (throw-couldnt-join-state-names a b "States do no not match.")))))
 
 
@@ -265,6 +290,11 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
        (if diff
 	   (make-instance 'or-state
 			  :name (name a)
+			  :identifier (logior (logandc2 (identifier a)
+							(if (sub-state a)
+							    (identifier (sub-state a))
+							    0))
+					      (identifier diff))
 			  :sub-state (copy diff)))))
     (t (copy a))))
 
@@ -283,7 +313,13 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
 				accept-unspecified-substate)
 		    diff))))
        (alexandria:if-let (diff (remove-if #'not diff))
-	 (make-instance 'and-state :name (name a) :sub-states diff))))
+	 (make-instance 'and-state :name (name a)
+				   :sub-states diff
+				   :identifier (logior (logandc2 (identifier a)
+								 (reduce #'logior (sub-states a)
+									 :key #'identifier))
+						       (reduce #'logior diff
+							       :key #'identifier))))))
     (t (copy a))))
 
 
@@ -360,12 +396,14 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
 (defgeneric from-chart-state (s))
 
 (defmethod from-chart-state ((s sc.chart::s))
-  (make-instance 'sc.key::state :name (sc.chart::name s)))
+  (make-instance 'sc.key::state :name (sc.chart::name s)
+				:identifier (sc.chart::identifier s)))
 
 
 (defmethod from-chart-state ((s sc.chart::s-xor))
   (let ((sub-state (from-chart-state (sc.chart::sub-state s))))
     (make-instance 'sc.key::or-state
+		   :identifier (sc.chart::identifier s)
 		   :name (sc.chart::name s)
 		   :sub-state sub-state)))
 
@@ -377,8 +415,9 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
     (collect sub-states into ret-states)
     (finally
      (return (make-instance 'sc.key::and-state
-			      :name (sc.chart::name s)
-			      :sub-states ret-states)))))
+			    :identifier (sc.chart::identifier s)
+			    :name (sc.chart::name s)
+			    :sub-states ret-states)))))
 
 
 

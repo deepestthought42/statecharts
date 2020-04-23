@@ -96,22 +96,26 @@
       (t (sc.utils::%print-object (sc.dsl::final-state
 			     (first (clauses obj))) stream)))))
 
+(defun defining-state-bit-index (obj)
+  (let ((i (sc.dsl::is-substate-of-cluster (defining-state obj))))
+    (when i (1+ i))))
 
 (defmethod print-object ((obj s) stream)
   (print-unreadable-object (obj stream)
+    (format stream "[~a]" (sc.utils::integer->bit-vector (identifier obj)))
     (print-s obj stream)))
 
 (defmethod print-s ((obj s) stream)
-  (format stream "(~a)" (name obj)))
+  (format stream "(~:[~;~:*~D|~]~a)" (defining-state-bit-index obj) (name obj)))
 
 (defmethod print-s ((obj s-xor) stream)
-  (format stream "(~a " (name obj))
+  (format stream "(~:[~;~:*~D|~]~a " (defining-state-bit-index obj) (name obj))
   (print-s (sub-state obj) stream)
   (format stream ")"))
 
 
 (defmethod print-s ((obj s-and) stream)
-  (format stream "(~a " (name obj))
+  (format stream "(~:[~;~:*~D|~]~a " (defining-state-bit-index obj) (name obj))
   (let ((sub-states (sub-states obj)))
     (when sub-states
       (print-s (car sub-states) stream)
@@ -150,6 +154,11 @@
 
 (defgeneric state-described-by-name (s state-name))
 
+
+(defmethod state-described-by-name ((s s) state-name)
+  (= (sc.key::identifier state-name)
+     (logand (sc.chart::identifier s)
+	     (sc.key::identifier state-name))))
 
 (defmethod state-described-by-name ((s s) state-name)
   (state=state-name s state-name))

@@ -294,9 +294,7 @@ let's use the statistical profiler for this:
 
 #+END_SRC
 
-*** NA determine how to speed up these functions
-
-*** same idea, just write it down
+*** DONE same idea, just write it down
 boils down to:
 - enumerate /or/ state and all /or/ sub-states thereof
 - create bitfield to record /and/ states and enumerate all /or/ states
@@ -304,8 +302,37 @@ boils down to:
 
 but: hwo do I handle or states that only specify a super-state ? 
 
-*** another approach
-when generating fsm states fill a tree structure
+*** DONE which one is better, integer or bitvector
+let's see which one is faster
+#+BEGIN_SRC lisp
+(defparameter *no* (round 1e7))
+
+
+
+(defun compare-arr (a b)
+  (dotimes (v *no*)
+    (declare (type (simple-array bit) a b)
+	     (type fixnum v *no*))
+    (bit-and a b)))
+
+
+(defun compare (a b)
+  (declare (optimize (speed 3) (safety 1) (space 0) (debug 0)))
+  (dotimes (v *no*)
+    (declare (type number a b)
+	     (type fixnum v *no*))
+    (= b (logand a b))))
+
+(time (compare (+ 1024 256 128 32 16 1) (+ 256 128 64)))
+
+(time (compare-arr (make-array 10 :element-type 'bit
+				  :initial-contents '(1 0 1 1 0 1 1 0 0 1))
+		   (make-array 10 :element-type 'bit
+				  :initial-contents '(0 0 1 1 1 0 0 0 0 0))))
+#+END_SRC
+
+integers it is
+*** TODO implement comparison
 * Footnotes
 
 [fn:1] https://www.merriam-webster.com/dictionary/system

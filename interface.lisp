@@ -7,10 +7,9 @@
   (let* ((states (sc.chart::compute-substates root))
 	 (transitions (sc.chart::compute-transitions root '() root))
 	 (fsm-states (sc.fsm::create-states states))
-	 (events  (remove-duplicates (mapcar #'sc.chart::event-name transitions))
-	   )
+	 (events  (remove-duplicates (mapcar #'sc.chart::event-name transitions)))
 	 (default-state (first (remove-if-not #'sc.chart::is-default-state states))))
-    ;; (sc.fsm::set-transitions-for-states states fsm-states transitions)
+    (sc.fsm::set-transitions-for-states states fsm-states transitions)
     (make-instance 'statecharts::statechart
 		   :name (string name)
 		   :description description

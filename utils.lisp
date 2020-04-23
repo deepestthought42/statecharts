@@ -56,3 +56,14 @@
 				    (copy-seq r)))))))))
 
 
+
+
+(defun integer->bit-vector (integer)
+  "Create a bit-vector from a positive integer."
+  (labels ((integer->bit-list (int &optional accum)
+	     (cond ((> int 0)
+		    (multiple-value-bind (i r) (truncate int 2)
+		      (integer->bit-list i (push r accum))))
+		   ((null accum) (push 0 accum))
+		   (t accum))))
+    (coerce (integer->bit-list integer) 'bit-vector)))

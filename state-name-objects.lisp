@@ -9,7 +9,9 @@
 
 (defclass state ()
   ((name :initarg :name :accessor name 
-	 :initform (error "Must initialize name."))))
+	 :initform (error "Must initialize name."))
+   (identifier :accessor identifier :initarg :identifier
+	       :initform (error "Need to initialize IDENTIFIER."))))
 
 (defclass or-state (state)
   ((sub-state :initarg :sub-state :accessor sub-state 
@@ -25,7 +27,7 @@
 
 (defmethod print-object ((obj state) stream)
   (print-unreadable-object (obj stream)
-    (format stream "s: ")
+    (format stream "key [~a]: " (sc.utils::integer->bit-vector (identifier obj)))
     (sc.utils::%print-object obj stream)))
 
 (defmethod sc.utils::%print-object ((obj state) stream)
@@ -52,7 +54,4 @@
   (format stream ")"))
 
 
-(defstruct state-id
-  (id 0 :type (integer 0))
-  (and-sub-states '() :type list))
 
