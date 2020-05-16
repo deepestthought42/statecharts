@@ -17,52 +17,69 @@
 	 :descriptor state-description
 	 :reason (apply #'format nil reason args)))
 
-(defun get-identifier (element)
-  (let ((id (sc.dsl::is-substate-of-cluster element)))
-    (if id (ash 1 id) 0)))
 
 (defun make-and-state-name (state element states-description)
   (labels ((%throw (reason &rest args) (%throw states-description reason args)))
-    (let+ ((sub-states
+    (let+ ((state-elements (filter-state-elements (sc.dsl::elements element)))
+	   ((&values sub-states sub-state-names)
 	    (cond
 	      ;; multiple sub-states
 	      ((listp (first states-description))
 	       (iter
 		 (for sub-state in states-description)
-		 (for s-name = (first sub-state))
-		 (cond
-		   ((not (symbolp s-name))
-		    (%throw "State name not a string: ~a" s-name))
-		   (t (collect
-			  (make-state-name
-			   sub-state
-			   (find-element s-name (sc.dsl::elements element))))))))
+		 (for s-name in (first sub-state))
+		 (when (not (symbolp s-name))
+		   (%throw "State name not a string: ~a" s-name))
+		 (collect
+		     (make-state-name
+		      sub-state
+		      (find-element s-name state-elements))
+		   into sub-states)
+		 (collect s-name into sub-state-names)
+		 (finally (return (values sub-states sub-state-names)))))
 	      ;; direct sub-state
 	      ((symbolp (first states-description))
-	       (list (make-state-name
-		      states-description
-		      (find-element (first states-description)
-				    (sc.dsl::elements element)))))))
+	       (values (list (make-state-name
+			      states-description
+			      (find-element (first states-description)
+					    state-elements)))
+		       (list (first states-description))))))
 	   (no-duplicates
-	    (remove-duplicates sub-states :test #'eq :key #'name)))
+	    (remove-duplicates sub-states :test #'eq :key #'name))
+	   (state-names-not-in-states-description
+	    (set-difference (mapcar #'sc.dsl::name state-elements)
+			    sub-state-names :test #'equal))
+	   (excluded-state-bits
+	    (iter
+	      (for element in state-elements)
+	      (when (find (sc.dsl::name element)
+			  state-names-not-in-states-description)
+		(reducing (sc.dsl::sub-states-bits element) by #'logior)))))
       (if (not (= (length sub-states)
 		  (length no-duplicates)))
 	  (%throw "Found duplicate substate definitions for: ~a"
 		  (mapcar #'name (set-difference sub-states no-duplicates))))
       (make-instance 'and-state :name state
-				:identifier
+				:defining-element element
+				:excluded-state-bits
 				(reduce #'logior sub-states
-					:key #'identifier
-					:initial-value (get-identifier element)) 
+					:key #'excluded-state-bits
+					:initial-value excluded-state-bits)
+				:state-bits
+				(reduce #'logior sub-states
+					:key #'state-bits
+					:initial-value (sc.dsl::state-bit element)) 
 				:sub-states sub-states))))
 
-
-(defun find-element (state elements)
+(defun filter-state-elements (elements)
   (labels ((state-p (obj) (typep obj 'sc.dsl::state)))
-    (alexandria:if-let (sub-s (find state (remove-if-not #'state-p elements)
-				    :key #'sc.dsl::name
-				    :test #'eq))
-      sub-s (throw-invalid state "Could not find state with name: ~a" state))))
+    (remove-if-not #'state-p elements)))
+
+(defun find-element (state state-elements)
+  (alexandria:if-let (sub-s (find state state-elements
+				  :key #'sc.dsl::name
+				  :test #'eq))
+    sub-s (throw-invalid state "Could not find state with name: ~a" state)))
 
 (defun make-state-name (state-description element)
   (labels ((%throw (reason &rest args) (%throw state-description reason args)))
@@ -93,49 +110,67 @@
 				     (first rest))))))
 	   (make-instance 'or-state
 			  :name state
-			  :identifier (logior (get-identifier element)
-					      (if sub-state
-						  (identifier sub-state)
-						  0))
+			  :defining-element element
+			  :excluded-state-bits (if sub-state
+						   (excluded-state-bits sub-state)
+						   (sc.dsl::sub-states-bits element))
+			  :state-bits (logior (sc.dsl::state-bit element)
+					      (if sub-state (state-bits sub-state) 0))
 			  :sub-state sub-state)))
 	;; leaf state
 	((and (typep element 'sc.dsl::state)
 	      (not (typep element 'sc.dsl::cluster)))
 	 (make-instance 'state :name state
-			       :identifier (get-identifier element)))
+			       :defining-element element
+			       :state-bits (sc.dsl::state-bit element)))
 	;;
 	(t (%throw "Couldn't parse key: ~a" state-description))))))
 
-(defun from-description (state-description dsl-element &optional super-state)
+(defun from-description (state-description dsl-element &optional super-state id-only)
   (labels ((to-symbols (params)
 	     (mapcar #'alexandria:make-keyword params))
 	   (%throw (reason &rest args) (%throw state-description reason args)))
-    (cond
-      ((and (listp state-description)
-	    (equal (first state-description) :/))
-       (make-state-name (to-symbols (rest state-description)) dsl-element))
-      ((and super-state (listp state-description))
-       (make-state-name (to-symbols (append super-state state-description)) dsl-element))
-      ((listp state-description)
-       (make-state-name (to-symbols (append super-state state-description)) dsl-element))
-      (t
-       (make-state-name (to-symbols
-			  (append super-state (list state-description)))
-			 dsl-element)))))
+    (let ((state-name
+	    (cond
+	      ((and (listp state-description)
+		    (equal (first state-description) :/))
+	       (make-state-name (to-symbols (rest state-description)) dsl-element))
+	      ((and super-state (listp state-description))
+	       (make-state-name (to-symbols (append super-state state-description)) dsl-element))
+	      ((listp state-description)
+	       (make-state-name (to-symbols (append super-state state-description)) dsl-element))
+	      (t
+	       (make-state-name (to-symbols
+				 (append super-state (list state-description)))
+				dsl-element)))))
+      (if id-only
+	  (make-instance 'state-id
+			 :state-bits (state-bits state-name)
+			 :defining-element dsl-element)
+	  state-name))))
 
 
 
 ;;; copy state-names
 (defgeneric copy (state))
 
+(defmethod copy ((s state-id))
+  (make-instance 'state-d :state-bits (state-bits s)
+			  :excluded-state-bits (excluded-state-bits s)
+			  :defining-element (defining-element s)))
+
 (defmethod copy ((sn state))
   (make-instance 'state :name (name sn)
-			:identifier (identifier sn)))
+			:state-bits (state-bits sn)
+			:excluded-state-bits (excluded-state-bits sn)
+			:defining-element (defining-element sn)))
 
 (defmethod copy ((sn or-state))
   (make-instance 'or-state
 		 :name (name sn)
-		 :identifier (identifier sn)
+		 :state-bits (state-bits sn)
+		 :excluded-state-bits (excluded-state-bits sn)
+		 :defining-element (defining-element sn)
 		 :sub-state
 		 (if (sub-state sn)
 		     (copy (sub-state sn)))))
@@ -143,116 +178,32 @@
 (defmethod copy ((sn and-state))
   (make-instance 'and-state
 		 :name (name sn)
-		 :identifier (identifier sn)
+		 :defining-element (defining-element sn)
+		 :excluded-state-bits (excluded-state-bits sn)
+		 :state-bits (state-bits sn)
 		 :sub-states
 		 (mapcar #'copy (sub-states sn))))
 
-;;; joining ops
-
-(defun throw-couldnt-join-state-names (a b reason &rest args)
-  (error 'sc.cond::couldnt-join-state-names
-	 :state-a a
-	 :state-b b
-	 :reason (format nil reason args)))
-
-(labels ((throw-couldnt-diff (a b)
-	   (throw-couldnt-join-state-names a b "States are of different type.")))
-  (defgeneric join (a b)
-    (:method ((a state) (b t))
-      (throw-couldnt-diff a b))
-    (:method ((a t) (b state))
-      (throw-couldnt-diff a b))
-    (:method ((a or-state) (b t))
-      (throw-couldnt-diff a b))
-    (:method ((a t) (b or-state))
-      (throw-couldnt-diff a b))
-    (:method ((a and-state) (b t))
-      (throw-couldnt-diff a b))
-    (:method ((a t) (b and-state))
-      (throw-couldnt-diff a b))))
-
-
-(defmethod join ((a state) (b state))
-  (cond
-    ((eq (name a) (name b))
-     (make-instance 'state :name (name a)
-			   :identifier (identifier a)))
-    (t (throw-couldnt-join-state-names a b "States do no not match."))))
-
-(defmethod join ((a or-state) (b or-state))
-  (cond
-    ((eq (name a) (name b))
-     (let ((substate (join (sub-state a) (sub-state b))))
-       (make-instance 'or-state
-		      :name (name a)
-		      :identifier (logior (identifier a)
-					  (if substate (identifier substate) 0))
-		      :sub-state substate)))
-    (t (throw-couldnt-join-state-names a b "States do no not match."))))
-
-(defmethod join ((a and-state) (b and-state))
-  (labels ((app-sns () 
-	     (let+ ((subs-a (sub-states a))
-		    (subs-b (sub-states b))
-		    (unionized (union subs-a subs-b :key #'name :test #'eq)))
-	       (iter
-		 (for sn in unionized)
-		 (for sa = (find (name sn) subs-a :key #'name :test #'eq))
-		 (for sb = (find (name sn) subs-b :key #'name :test #'eq))
-		 (cond
-		   ((and sa sb) (collect (join sa sb)))
-		   (sa (collect sa))
-		   (sb (collect sb)))))))
-    (cond
-      ((eq (name a) (name b))
-       (let ((substates (app-sns)))
-	 (make-instance 'and-state :name (name a)
-				   :identifier (reduce #'logior substates
-						       :key #'identifier
-						       :initial-value (identifier a))
-				   :sub-states substates)))
-      (t (throw-couldnt-join-state-names a b "States do no not match.")))))
-
-
-;;; intersection ops
-(defgeneric intersect-state-names (a b)
-  (:method (a b) (make-instance 'state :name (name a))))
 
 
 
-(defmethod intersect-state-names ((a state) (b state))
-  (cond
-    ((eq (name a) (name b)) '())
-    (t (make-instance 'state :name (name a)))))
-
-(defmethod intersect-state-names ((a or-state) (b or-state))
-  (cond
-    ((eq (name a) (name b))
-     (alexandria:if-let (substate (intersect-state-names (sub-state a) (sub-state b)))
-       (make-instance 'or-state
-		      :name (name a)
-		      :sub-state (copy substate))))
-    (t '())))
-
-(defmethod intersect-state-names ((a and-state) (b and-state))
-  (cond
-    ((eq (name a) (name b))
-     (let (substates-a substates-b)
-       (iter
-	 (for sub-a in (sub-states a))
-	 (for sub-b = (find (name sub-a) (sub-states b)
-			    :key #'name :test #'eq))
-	 (when (and sub-a sub-b)
-	   (push (copy sub-a) substates-a)
-	   (push (copy sub-b) substates-b)))
-       (alexandria:if-let (subs (remove-if #'not
-					   (mapcar #'intersect-state-names
-						   substates-a substates-b)))
-	 (make-instance 'and-state :name (name a) :sub-states subs))))
-    (t '())))
+(defmethod join ((a state-id) (b state-id))
+  (make-instance 'state-id :defining-element (defining-element a)
+			   :excluded-state-bits (logior (excluded-state-bits a)
+							(excluded-state-bits b))
+		 :state-bits (logior (state-bits a)
+				     (state-bits b))))
 
 
-;;; set-difference-state-names
+
+(defmethod intersect-state-names ((a state-id) (b state-id))
+  (make-instance 'state-id :defining-element (defining-element a)
+			   :excluded-state-bits (logand (excluded-state-bits a)
+							(excluded-state-bits b)) 
+			   :state-bits (logand (state-bits a)
+					       (state-bits b))))
+
+
 
 (defgeneric difference (a b &key accept-unspecified-substate)
   (:method (a b &key accept-unspecified-substate)
@@ -262,65 +213,14 @@
 B.  When ACCEPT-UNSPECIFIED-SUBSTATE is true, unspecified substates in a cluster
 are ignored, such that: (difference (a b) (a)) -> NIL."))
 
-(defun %same-name (a b)
-  (eq (name a) (name b)))
 
-
-(defmethod difference ((a state) (b state) &key accept-unspecified-substate)
+(defmethod difference ((a state-id) (b state-id) &key accept-unspecified-substate)
   (declare (ignore accept-unspecified-substate))
-  (cond
-    ((%same-name a b) '())
-    (t (copy a))))
-
-(defmethod difference ((a or-state) (b state) &key accept-unspecified-substate)
-  (if (and (%same-name a b) accept-unspecified-substate)
-      '()
-      (copy a)))
-
-(defmethod difference ((a or-state) (b or-state) &key accept-unspecified-substate)
-  (cond
-    ((and (%same-name a b) (sub-state a) (not (sub-state b)))
-     (if accept-unspecified-substate
-	 '() (copy a)))
-    ((and (%same-name a b) (not (sub-state a)))
-     '())
-    ((%same-name a b)
-     (let ((diff (difference (sub-state a) (sub-state b)
-			     :accept-unspecified-substate accept-unspecified-substate)))
-       (if diff
-	   (make-instance 'or-state
-			  :name (name a)
-			  :identifier (logior (logandc2 (identifier a)
-							(if (sub-state a)
-							    (identifier (sub-state a))
-							    0))
-					      (identifier diff))
-			  :sub-state (copy diff)))))
-    (t (copy a))))
-
-(defmethod difference ((a and-state) (b and-state) &key accept-unspecified-substate)
-  (cond
-    ((eq (name a) (name b))
-     (let (diff)
-       (iter
-	 (for sub-a in (sub-states a))
-	 (for sub-b = (find (name sub-a) (sub-states b)
-			    :key #'name :test #'eq))
-	 (cond
-	   ((not sub-b) (push (copy sub-a) diff))
-	   (t (push (difference sub-a sub-b
-				:accept-unspecified-substate
-				accept-unspecified-substate)
-		    diff))))
-       (alexandria:if-let (diff (remove-if #'not diff))
-	 (make-instance 'and-state :name (name a)
-				   :sub-states diff
-				   :identifier (logior (logandc2 (identifier a)
-								 (reduce #'logior (sub-states a)
-									 :key #'identifier))
-						       (reduce #'logior diff
-							       :key #'identifier))))))
-    (t (copy a))))
+  (make-instance 'state-id :defining-element (defining-element a)
+			   :state-bits (logandc2 (state-bits a)
+						 (state-bits b))
+			   :excluded-state-bits (logandc2 (excluded-state-bits a)
+							  (excluded-state-bits b))))
 
 
 ;;; compare state names
@@ -332,23 +232,9 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
 ;; (defmethod state= ((a t) (b state)) nil)
 
 
-(defmethod state= ((a state) (b state))
-  (eq (name a) (name b)))
-
-(defmethod state= ((a or-state) (b or-state))
-  (and (eq (name a) (name b))
-       (state= (sub-state a) (sub-state b))))
-
-(defmethod state= ((a and-state) (b and-state))
-  (and (eq (name a) (name b))
-       (= (length (sub-states a))
-	  (length (sub-states b)))
-       (iter
-	 (for sa in (sub-states a))
-	 (for sb in (sub-states b))
-	 (if (not (state= sa sb))
-	     (return nil))
-	 (finally (return t)))))
+(defmethod state= ((a state-id) (b state-id))
+  (= (state-bits a)
+     (state-bits b)))
 
 
 ;;; find dsl-object for state
@@ -359,36 +245,10 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
   (:method ((state t) (dsl-object t)) nil))
 
 
+
+
 (defmethod find-dsl-object ((state state) (dsl-object sc.dsl::state))
   (when (eq (name state) (sc.dsl::name dsl-object)) dsl-object))
-
-(defmethod find-dsl-object ((state or-state) (dsl-object sc.dsl::cluster))
-  (when (eq (name state) (sc.dsl::name dsl-object))
-    (let ((states (remove-if-not #'(lambda (e) (typep e 'sc.dsl::state))
-				 (sc.dsl::elements dsl-object))))
-      ;; empty sub-state -> return dsl-object
-      (if (not (sub-state state))
-	  dsl-object
-	  (iter
-	    (for s in states)
-	    (for o = (find-dsl-object (sub-state state) s))
-	    (if o (return o)))))))
-
-
-(defmethod find-dsl-object ((state and-state) (dsl-object sc.dsl::orthogonal))
-  (when (eq (name state) (sc.dsl::name dsl-object))
-    (let ((states (remove-if-not #'(lambda (e) (typep e 'sc.dsl::state))
-				 (sc.dsl::elements dsl-object))))
-      ;; empty sub-state -> return dsl-object
-      (cond
-	((not (sub-states state)) dsl-object)
-	((= 1 (length (sub-states state)))
-	 (iter
-	   (for s in states)
-	   (for o = (find-dsl-object (first (sub-states state)) s))
-	   (if o (return o))))
-	;; maybe throw error here ?
-	(t nil)))))
 
 ;;; from-chart-state state-name from s
 
@@ -396,28 +256,74 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
 (defgeneric from-chart-state (s))
 
 (defmethod from-chart-state ((s sc.chart::s))
-  (make-instance 'sc.key::state :name (sc.chart::name s)
-				:identifier (sc.chart::identifier s)))
+  (make-instance 'sc.key::state-id :defining-element (sc.chart::defining-state s)
+				   :state-bits (sc.chart::state-bit s)))
+
+;; printing is defined here instead of in state-name-compute to have
+;; all packages (in particular sc.dsl) and functions available
 
 
-(defmethod from-chart-state ((s sc.chart::s-xor))
-  (let ((sub-state (from-chart-state (sc.chart::sub-state s))))
-    (make-instance 'sc.key::or-state
-		   :identifier (sc.chart::identifier s)
-		   :name (sc.chart::name s)
-		   :sub-state sub-state)))
+
+(defmethod print-object ((obj state-id) stream)
+  (print-unreadable-object (obj stream)
+    (sc.utils::%print-object obj stream)))
+
+(defmethod sc.utils::%print-object ((obj state-id) stream)
+  (format stream "key [~a]: ~a"
+	  (sc.utils::integer->bit-vector (state-bits obj))
+	  (%print-key (defining-element obj) (state-bits obj))))
 
 
-(defmethod from-chart-state ((s sc.chart::s-and))
-  (iter
-    (for sub-state in (sc.chart::sub-states s))
-    (for sub-states = (from-chart-state sub-state))
-    (collect sub-states into ret-states)
-    (finally
-     (return (make-instance 'sc.key::and-state
-			    :identifier (sc.chart::identifier s)
-			    :name (sc.chart::name s)
-			    :sub-states ret-states)))))
+(defun %shall-print (defining-element id)
+  (and (typep defining-element 'sc.dsl::state)
+       (> (sc.dsl::state-bit defining-element) 0)
+       (> (logand (sc.dsl::state-bit defining-element) id)
+	  0)))
 
 
+(defmethod %print-key ((defining-element sc.dsl::state) id)
+  (if (%shall-print defining-element id)
+      (values (format nil "(~a)" (sc.dsl::name defining-element))
+	      t)))
+
+(defmethod %print-key ((defining-element sc.dsl::cluster) id)
+  (let+ ((elements (remove-if-not #'(lambda (e) (typep e 'sc.dsl::state))
+				  (sc.dsl::elements defining-element)))
+	 ((&values sub-string printed-sub)
+	  (iter
+	    (for e in elements)
+	    (for (values sub-string printed) = (%print-key e id))
+	    (when printed (return (values sub-string printed))))))
+    (cond
+      (printed-sub
+       (values (format nil "(~a ~a)"
+		       (sc.dsl::name defining-element)
+		       sub-string)
+	       t))
+      ((%shall-print defining-element id)
+       (values (format nil "(~a)"
+		       (sc.dsl::name defining-element))
+	       t)))))
+
+(defmethod %print-key ((defining-element sc.dsl::orthogonal) id)
+  (let+ (((&values sub-strings printed)
+	   (iter
+	     (for e in (sc.dsl::elements defining-element))
+	     (unless (typep e 'sc.dsl::state)
+	       (next-iteration))
+	     (for (values sub-string printed) = (%print-key e id))
+	     (when printed
+	       (collect sub-string into sub-strings))
+	     (finally
+	      (return
+		(when sub-strings (values sub-strings t)))))))
+    (cond
+      (printed
+       (values (format nil "(~a ~{~a~^^~})"
+		       (sc.dsl::name defining-element)
+		       sub-strings)
+	       t))
+      ((%shall-print defining-element id)
+       (values (format nil "(~a)" (sc.dsl::name defining-element))
+	       t)))))
 

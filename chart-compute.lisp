@@ -12,21 +12,27 @@
 (defmethod compute-substates ((s t))
   '())
 
-(defun get-identifier (dsl-state)
-  (alexandria:if-let (id (sc.dsl::is-substate-of-cluster dsl-state))
-    (ash 1 id) 0))
+
 
 (defmethod compute-substates ((s sc.dsl::state))
   (list (make-instance 's :name (sc.dsl::name s)
 			  :defining-state s
-			  :identifier (get-identifier s)
+			  :state-bit (sc.dsl::state-bit s)
 			  :on-entry (sc.dsl::on-entry s)
 			  :on-reentry (sc.dsl::on-reentry s)
 			  :on-exit (sc.dsl::on-exit s))))
 
 
-(defun get-states (elements)
-  (remove-if-not #'(lambda (e) (typep e 'sc.dsl::state)) elements))
+(defun get-states (elements &optional default-name)
+  (iter
+    (with default-state = nil)
+    (for e in elements)
+    (if (typep e 'sc.dsl::state)
+	(progn
+	  (collect e into states)
+	  (if (equal (sc.dsl::name e) default-name)
+	      (setf default-state e))))
+    (finally (return (values states default-state)))))
 
 (defun sub-states-check (sub-states name &optional (cluster-desc "CLUSTER"))
   (cond
@@ -41,8 +47,8 @@
   (let+ (((&slots sc.dsl::name sc.dsl::elements sc.dsl::default-state
 		  sc.dsl::selector-type)
 	  cluster)
-	 (states (get-states sc.dsl::elements))
-	 (identifier (get-identifier cluster)))
+	 ((&values states default-state) (get-states sc.dsl::elements sc.dsl::default-state))
+	 (state-bit (sc.dsl::state-bit cluster)))
     (sub-states-check states sc.dsl::name)
     (iter outer
       (for e in states)
@@ -56,9 +62,12 @@
 				      (sc::d 's-xor)
 				      (t (error "Unknown selector type: ~a"
 						sc.dsl::selector-type)))
-				    :name sc.dsl::name :sub-state s
+				    :name sc.dsl::name
+				    :sub-state s
 				    :defining-state cluster
-				    :identifier (+ identifier (identifier s))
+				    :state-bit (+ state-bit (state-bit s))
+				    :default-state-bit (+ (sc.dsl::state-bit default-state)
+				    			  (default-state-bit s))
 				    :on-entry (sc.dsl::on-entry cluster)
 				    :on-reentry (sc.dsl::on-reentry cluster)
 				    :on-exit (sc.dsl::on-exit cluster)
@@ -70,7 +79,7 @@
 (defmethod compute-substates ((ortho sc.dsl::orthogonal))
   (let+ (((&slots sc.dsl::name sc.dsl::elements) ortho)
 	 (states (get-states sc.dsl::elements))
-	 (identifier (get-identifier ortho))
+	 (state-bit (sc.dsl::state-bit ortho))
 	 (substates
 	  (iter
 	    (for e in sc.dsl::elements)
@@ -85,8 +94,12 @@
       (for sub-states in (sc.utils::combine-sets substates))
       (collect (make-instance 's-and :name sc.dsl::name
 				     :defining-state ortho
-				     :identifier (reduce #'+ sub-states :key #'identifier
-							 :initial-value identifier)
+				     :state-bit
+				     (reduce #'+ sub-states :key #'state-bit
+							    :initial-value state-bit)
+				     :default-state-bit
+				     (reduce #'+ sub-states :key #'default-state-bit
+							    :initial-value state-bit)
 				     :on-entry (sc.dsl::on-entry ortho)
 				     :on-reentry (sc.dsl::on-reentry ortho)
 				     :on-exit (sc.dsl::on-exit ortho)
@@ -127,7 +140,7 @@
     (when (typep el 'sc.dsl::transition)
       (for initial-state-name
 	   = (sc.key::from-description (sc.dsl::initial-state el)
-				       chart-element super-state))
+				       chart-element super-state t))
       (for clauses
 	   = (mapcar #'(lambda (c) (%make-clause c chart-element super-state))
 		     (sc.dsl::clauses el)))

@@ -48,20 +48,32 @@
     (otherwise (error "Couldn't parse final state specification: ~a" final))))
 
 
+
+
+
+
+
+
+(defparameter *environment* nil)
 (defparameter *sub-state-of-or* nil)
 (defparameter *nth-sub-state* -1)
 
-(defun get-lookup ()
-  (when *sub-state-of-or*
-    (prog1 *nth-sub-state*
-      (incf *nth-sub-state*))))
+(defun get-state-bit ()
+  (if *sub-state-of-or* (ash 1 (incf *nth-sub-state*)) 0))
+
+
+(defun get-sub-states-bits (e)
+  (if (typep e 'sc.dsl::state)
+      (+ (state-bit e) (sub-states-bits e))
+      0))
 
 ;;;; helper macros
 (defmacro %superstate (type name state-selector default-state description
 		       entry exit reentry sub-states)
   (ecase type
     (cluster
-     `(let ((sub-states (let ((*sub-state-of-or* t)) (list ,@sub-states))))
+     `(let* ((sub-states (let ((*sub-state-of-or* t)) (list ,@sub-states)))
+	     (sub-states-bits (reduce #'logior sub-states :key #'get-sub-states-bits)))
 	(if (not (find ,(alexandria:make-keyword default-state)
 		       sub-states :key #'sc.dsl::name :test #'equal))
 	    (error 'sc.cond::couldnt-find-default-state
@@ -74,15 +86,18 @@
 					:selector-type ',state-selector
 					:default-state ,default-state
 					:elements sub-states
-					:is-substate-of-cluster (get-lookup))))
+					:sub-states-bits sub-states-bits
+					:state-bit (get-state-bit))))
     (orthogonal
-     `(make-instance 'sc.dsl::orthogonal :name ,name :description ,description
-					 :on-entry ,entry
-					 :on-reentry ,reentry
-					 :on-exit ,exit
-					 :elements (let ((*sub-state-of-or* nil))
-						     (list ,@sub-states))
-					 :is-substate-of-cluster (get-lookup)))))
+     `(let* ((sub-states (let ((*sub-state-of-or* nil)) (list ,@sub-states)))
+	     (sub-states-bits (reduce #'logior sub-states :key #'get-sub-states-bits)))
+	(make-instance 'sc.dsl::orthogonal :name ,name :description ,description
+					   :on-entry ,entry
+					   :on-reentry ,reentry
+					   :on-exit ,exit
+					   :elements sub-states
+					   :sub-states-bits sub-states-bits
+					   :state-bit (get-state-bit))))))
 
 ;;; statechart definition language
 
@@ -152,7 +167,7 @@ with the ENVIRONMENT as their parameter.
 		  :on-entry ,entry
 		  :on-reentry ,reentry
 		  :on-exit ,exit
-		  :is-substate-of-cluster (get-lookup)))
+		  :state-bit (get-state-bit)))
 
 
 (defmacro act ((&optional (environment-symbol 'env)) &body code)

@@ -99,6 +99,7 @@ first thing to come up with, elements of the DSL
      (via symbol-function) the function object when constructing the
      fsm
 
+
 * TODOs 
 ** TODO guard against two substates with the same name
 ** DONE write function to parse conditionals 
@@ -332,7 +333,36 @@ let's see which one is faster
 #+END_SRC
 
 integers it is
-*** TODO implement comparison
+*** DONE implement bitvector only statename function
+- create superstate bitvector to operate on
+- printing of superstate to make life somewhat easier
+- then: all those computation should be trivial now
+*** NA method to compute excluded ids for /orthogonal/ state-keys
+- to then be used to derive non-specified /orthogonal/ states from the
+  initial-state when resolving transition targets
+**** log
+- need to remind myself of what I wanted to do
+- ok, I think I remember, but do we want to specify specified or
+  not-specified states ? Well, can be changed quickly
+- remember where I stopped ... for the exclusion id I need to gather
+  the bitmask from /all/ the substates down the tree, which might be
+  easiest when building the dsl elements
+- yes, let's do that when creating dsl elements and let's use an
+  environment global variable to do so (maybe a plist ?)
+- I changed a bunch of stuff to accomodate various things and also
+  rename weirdly choosen things (like identifier --> state-bits)
+- so, next thing would be to actually fill sub-states in chart objects
+  so I can calculate excluded-state-bits for resolving default states
+- <2020-05-16 Sat 11:57> defstatechart compiles, but the transitions
+  in the fsm states aren't filled
+
+*** NA what happens with non-specified or states ?
+- those should be resolved by choosing the default state
+
+
+*** TODO rework id naming
+identifier is a bs name
+
 * Footnotes
 
 [fn:1] https://www.merriam-webster.com/dictionary/system

@@ -18,40 +18,52 @@
    (on-reentry :accessor on-reentry :initarg :on-reentry :initform '())
    (on-exit :accessor on-exit :initarg :on-exit :initform '())
    (fsm-state :accessor fsm-state :initarg :fsm-state)
-   (identifier :accessor identifier :initarg :identifier
-	       :initform 0)))
+   (state-bit :accessor state-bit :initarg :state-bit
+	      :initform 0)
+   (default-state-bit :accessor default-state-bit :initarg :default-state-bit
+		      :initform 0)))
 
 
 
 (defclass s-xor (s)
   ((sub-state :initarg :sub-state :accessor sub-state 
 	      :initform (error "Must initialize sub-state."))
+   (sub-state-bit :accessor sub-state-bit :initarg :sub-state-bit
+		  :initform 0)
    (default-state :initarg :default-state :accessor default-state 
 		  :initform (error "Must initialize default-state."))))
 
+(defmethod initialize-instance :after ((s s-xor) &key)
+  (when (sub-state s)
+    (setf (sub-state-bit s) (state-bit (sub-state s)))))
 
 (defclass history-s-xor (s-xor) ())
 
 
 (defclass s-and (s)
   ((sub-states :initarg :sub-states :accessor sub-states 
-	       :initform (error "Must initialize sub-states."))))
+	       :initform (error "Must initialize sub-states."))
+   (sub-states-bits :accessor sub-states-bits :initarg :sub-states-bits
+		    :initform 0)))
 
+(defmethod initialize-instance :after ((s s-and) &key)
+  (setf (sub-states-bits s) (reduce #'+ (sub-states s) :key #'state-bit)
+	(sub-states s) (sort (sub-states s) #'string< :key #'name)))
 
-(defmethod initialize-instance :after ((obj s-and) &key)
-  (setf (sub-states obj) (sort (sub-states obj) #'string< :key #'name)))
 
 (defgeneric copy-state (s &key))
 
 (sc.utils::define-copy-object-method (s copy-state)
-  name defining-state on-entry on-reentry on-exit)
+  name defining-state on-entry on-reentry on-exit
+  state-bit default-state-bit)
 
 (sc.utils::define-copy-object-method (s-xor copy-state)
   name defining-state on-entry on-reentry on-exit
-  sub-state default-state)
+  sub-state sub-state-bit default-state)
 
 (sc.utils::define-copy-object-method (s-and copy-state)
-  name defining-state on-entry on-reentry on-exit sub-states)
+  name defining-state on-entry on-reentry on-exit
+  sub-states sub-states-bits)
 
 
 (defgeneric get-leaf (s)
@@ -96,26 +108,26 @@
       (t (sc.utils::%print-object (sc.dsl::final-state
 			     (first (clauses obj))) stream)))))
 
-(defun defining-state-bit-index (obj)
-  (let ((i (sc.dsl::is-substate-of-cluster (defining-state obj))))
-    (when i (1+ i))))
 
 (defmethod print-object ((obj s) stream)
   (print-unreadable-object (obj stream)
-    (format stream "[~a]" (sc.utils::integer->bit-vector (identifier obj)))
+    (format stream "[~a]" (sc.utils::integer->bit-vector (state-bit obj)))
     (print-s obj stream)))
 
 (defmethod print-s ((obj s) stream)
-  (format stream "(~:[~;~:*~D|~]~a)" (defining-state-bit-index obj) (name obj)))
+  (format stream "(~a)" (name obj)))
 
 (defmethod print-s ((obj s-xor) stream)
-  (format stream "(~:[~;~:*~D|~]~a " (defining-state-bit-index obj) (name obj))
-  (print-s (sub-state obj) stream)
-  (format stream ")"))
+  (if (sub-state obj)
+      (progn
+	(format stream "(~a " (name obj))
+	(print-s (sub-state obj) stream)
+	(format stream ")"))
+      (format stream "(~a" (name obj))))
 
 
 (defmethod print-s ((obj s-and) stream)
-  (format stream "(~:[~;~:*~D|~]~a " (defining-state-bit-index obj) (name obj))
+  (format stream "(~a " (name obj))
   (let ((sub-states (sub-states obj)))
     (when sub-states
       (print-s (car sub-states) stream)
@@ -126,113 +138,64 @@
   (format stream ")"))
 
 
-;;; state to name comparison
 
-(defgeneric state=state-name (state state-name))
+(defgeneric key-subset-of-state (s state-key))
 
-(defmethod  state=state-name ((state t)
-			      (state-name t))
-  nil)
+(defmethod key-subset-of-state ((s s) state-key)
+  (= (logand (sc.key::state-bits state-key)
+	     (state-bit s))
+     (sc.key::state-bits state-key)))
 
-(defmethod state=state-name ((state s)
-			     (state-name sc.key::state))
-  (eq (sc.key::name state-name)
-      (name state)))
+(defmethod state-subset-of-key ((s s) state-key)
+  (= (logand (sc.key::state-bits state-key)
+	     (state-bit s))
+     (state-bit s)))
 
-
-(defmethod state=state-name ((state s-xor)
-			     (state-name sc.key::or-state))
-  (eq (sc.key::name state-name)
-      (name state)))
-
-(defmethod state=state-name ((state s-and)
-			     (state-name sc.key::and-state))
-  (eq (sc.key::name state-name)
-      (name state)))
-
-
-
-(defgeneric state-described-by-name (s state-name))
-
-
-(defmethod state-described-by-name ((s s) state-name)
-  (= (sc.key::identifier state-name)
-     (logand (sc.chart::identifier s)
-	     (sc.key::identifier state-name))))
-
-(defmethod state-described-by-name ((s s) state-name)
-  (state=state-name s state-name))
-
-(defmethod state-described-by-name ((s s-xor) state-name)
-  (cond
-    ;; name and state-name have to match as well as the type of name
-    ((not (state=state-name s state-name)) nil)
-    ;; the name matches but doesn't specify any sub-states -> match
-    ((not (sc.key::sub-state state-name)) t)
-    ;; the name still matches and specifies sub-states -> test substate
-    (t (state-described-by-name (sub-state s) (sc.key::sub-state state-name)))))
-
-(defmethod state-described-by-name ((s s-and) state-name)
-  (labels ((is-sub-state (k)
-	     (iter
-	       (for sub-s in (sub-states s))
-	       (if (state-described-by-name sub-s k)
-		   (return t)))))
-    (cond
-      ;; name and state-name have to match as well as the type of state-name
-      ((not (state=state-name s state-name)) nil)
-      ;; the state-name doesn't specify any substates, so all good
-      ((not (sc.key::sub-states state-name)) t)
-      ;; name matches and we have substates, so compare them one be one
-      (t (reduce #'(lambda (a b) (and a b))
-		 (sc.key::sub-states state-name)
-		 :key #'is-sub-state)))))
-
-
-;; remove substates not explicitly speficied in state-name
-(defgeneric remove-implicit-substates (state state-name)
+;; remove substates not explicitly speficied in state-key
+(defgeneric remove-implicit-substates (state state-key)
   (:documentation "Remove substates from STATE not explicitly speficied in STATE-NAME."))
 
-(defmethod remove-implicit-substates ((s (eql nil)) state-name)
-  (error "Substate(s) given in state-name not found in state."))
+(defmethod remove-implicit-substates ((s (eql nil)) state-key)
+  (error "Substate(s) given in state-key not found in state."))
 
-(defun check-state-name (state state-name)
-  (when (not (state=state-name state state-name))
-    (error "State: ~a not described by state-name: ~a" state state-name)))
+(defun check-state-key (state state-key)
+  (when (not (state-subset-of-key state state-key))
+    (error "State: ~a not described by state-name: ~a" state state-key)))
 
-(defmethod remove-implicit-substates ((state s) state-name)
-  (check-state-name state state-name)
+(defmethod remove-implicit-substates ((state s) state-key)
   (copy-state state))
 
-(defmethod remove-implicit-substates ((state s-xor) state-name)
-  (check-state-name state state-name)
+(defmethod remove-implicit-substates ((state s-xor) state-key)
   (cond
     ;; the name matches but doesn't specify any sub-states -> return technically, this
     ;; doesn't make any sense but for determining which state is reentered it might be
     ;; useful
-    ((not (sc.key::sub-state state-name)) (copy-state state :sub-state nil))
+    ((= (logand (sc.key::state-bits state-key)
+		(sub-state-bit state))
+	0)
+     (copy-state state :sub-state nil))
     ;; the name still matches and specifies sub-states -> test substate
     (t (copy-state state :sub-state
-		   (remove-implicit-substates (sub-state state)
-					      (sc.key::sub-state state-name))))))
+		   (remove-implicit-substates (sub-state state) state-key)))))
 
 
-(defmethod remove-implicit-substates ((state s-and) state-name)
-  (check-state-name state state-name)
+(defmethod remove-implicit-substates ((state s-and) state-key)
   (cond
-    ;; the state-name doesn't specify any substates, so return nil
-    ((not (sc.key::sub-states state-name)) (copy-state state :sub-states nil))
+    ;; the state-key doesn't specify any substates, so return nil
+    ((= (logand (sc.key::state-bits state-key)
+		(sub-states-bits state))
+	0)
+     (copy-state state :sub-states nil))
     ;; name matches and we have substates, so return only
-    ;; the ones given in state-name
+    ;; the ones given in state-key
     (t
      (copy-state state :sub-states
 		 (iter
-		   (for sn in (sc.key::sub-states state-name))
-		   (for s = (find (sc.key::name sn) (sub-states state)
-				  :test #'eq :key #'name))
-		   (when (not s) (error "Couldn't find substate with name: ~a" sn))
-		   (for explicit = (remove-implicit-substates s sn))
-		   (when explicit (collect explicit)))))))
+		   (for s in (sub-states state))
+		   (when (> (logand (sc.key::state-bits state-key)
+				    (state-bit s))
+			    0)
+		     (collect (remove-implicit-substates s state-key))))))))
 
 
 
@@ -306,40 +269,12 @@
 
 
 
-(defgeneric is-partial-default-state (s state-name fixed))
+(defgeneric is-partial-default-state (s to-resolve-on))
 
-(defmethod is-partial-default-state ((s s)
-				     (state-name sc.key::state)
-				     fixed)
-  t)
 
-(defmethod is-partial-default-state ((s s-xor)
-				     (state-name sc.key::or-state)
-				     fixed)
-  (if (sc.key::sub-state state-name)
-      (is-partial-default-state (sub-state s)
-				(sc.key::sub-state state-name)
-				(when fixed (sc.key::sub-state fixed)))
-      (is-default-state s)))
-
-(defmethod is-partial-default-state ((s s-and)
-				     (state-name sc.key::and-state)
-				     fixed)
-  (labels ((%find-state-name (sub-s state-names)
-	     (iter
-	       (for state-name in state-names)
-	       (if (state-described-by-name sub-s state-name)
-		   (return state-name)))))
-    (iter
-      (for sub-s in (sub-states s))
-      (for s-name = (%find-state-name sub-s (sc.key::sub-states state-name)))
-      (for is-fixed = (when fixed
-			    (%find-state-name sub-s (sc.key::sub-states fixed))))
-      (cond
-	((and s-name (not (is-partial-default-state sub-s s-name is-fixed))) (return nil))
-	((and (not s-name) (not is-fixed) (not (is-default-state sub-s))) (return nil)))
-      (finally (return t)))))
-
+(defmethod is-partial-default-state ((s s) to-resolve-on)
+  (= (logand (state-bit s) to-resolve-on)
+     (logand (default-state-bit s) to-resolve-on)))
 
 (defgeneric is-history-state (state))
 
@@ -359,24 +294,24 @@
 
 
 
-(defun get-states-described-by-name (lst-of-states state-name)
-  (remove-if-not #'(lambda (s) (state-described-by-name s state-name))
+(defun get-states-described-by-name (lst-of-states state-key)
+  (remove-if-not #'(lambda (s) (state-subset-of-key s state-key))
 		 lst-of-states))
 
 
-(defun resolve-final-state (possible-states state-name fixed)
+(defun resolve-final-state (possible-states state-key)
   (let+ (;; in theory, these are more states than necessary as not all of
 	 ;; history-states will have exits, but keeping track of this is
 	 ;; bothersome; fixme: if this should be a performance issue, we might
 	 ;; wanna fix it
 	 (history-states (remove-if-not #'is-history-state possible-states))
+	 (bits-to-resolve-on (sc.key::excluded-state-bits state-key))
 	 (resolved-states
-	  (remove-if-not #'(lambda (s)
-			     (is-partial-default-state s state-name fixed))
+	  (remove-if-not #'(lambda (s) (is-partial-default-state s bits-to-resolve-on))
 			 possible-states))
 	 (final-state resolved-states))
     (unless (= (length final-state) 1)
-      (error "Implementation error resolving default state for: ~a" state-name))
+      (error "Implementation error resolving default state for: ~a" state-key))
     (values (first resolved-states) history-states)))
 
 

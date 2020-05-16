@@ -24,7 +24,7 @@
 
 (defmethod print-object ((obj state) stream)
   (print-unreadable-object (obj stream)
-    (format stream "state w/name: ")
+    (format stream "fsm state w/")
     (sc.utils::%print-object (name obj) stream)))
 
 

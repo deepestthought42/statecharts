@@ -1,6 +1,9 @@
 (defpackage #:statecharts.utils
   (:use #:cl #:iterate #:let-plus #:trivia)
-  (:nicknames #:sc.utils))
+  (:nicknames #:sc.utils)
+  (:export
+   #:with-environment-parameters
+   #:current-value))
 
 
 (in-package #:sc.utils)
@@ -67,3 +70,7 @@
 		   ((null accum) (push 0 accum))
 		   (t accum))))
     (coerce (integer->bit-list integer) 'bit-vector)))
+
+
+
+

@@ -64,8 +64,8 @@
 
 (let ((name ))
   (remove-if-not #'is-default-state
-		 (remove-if-not #'(lambda (s) (state-described-by-name s name))
-				(remove-if-not #'(lambda (s) (state-described-by-name s name))
+		 (remove-if-not #'(lambda (s) (key-subset-of-state s name))
+				(remove-if-not #'(lambda (s) (key-includes-state s name))
 					       (states test-1)))))
 
 
@@ -229,10 +229,10 @@
 
 
 (signal-event *test* :ev_r)
-(signal-event *test* :|ev_2|)
+(signal-event *test* :ev_2)
 (signal-event *test* :ev)
-(signal-event *test* :|out|)
-(signal-event *test* :|in|)
+(signal-event *test* :out)
+(signal-event *test* :in)
 
 (let ((env (make-instance 'test-env
 			  :fsm (sc:create-fsm-runtime sc/test :debug t))))

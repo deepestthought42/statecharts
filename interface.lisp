@@ -38,7 +38,7 @@
   (%check-defstatechart-arguments name description definitions)
   (sc.dsl::clear-id)
   `(defparameter ,name (%create-state-chart ',name
-					    (let ((sc.dsl::*nth-sub-state* 0))
+					    (let ((sc.dsl::*nth-sub-state* -1))
 					      (progn ,@definitions))
 					    ,description)))
 

@@ -131,9 +131,13 @@
    (transitions :accessor transitions
 		:initarg :transitions
 		:initform '())
-   (is-substate-of-cluster :accessor is-substate-of-cluster
-			   :initarg :is-substate-of-cluster
-			   :initform nil)))
+   (state-bit :accessor state-bit
+	      :initarg :state-bit
+	      :initform 0)
+   (sub-states-bits :accessor sub-states-bits :initarg :sub-states-bits
+		    :initform 0)))
+
+
 
 (defclass state-selector (statechart-element)
   ((selected-state :initarg :selected-state :accessor selected-state 
