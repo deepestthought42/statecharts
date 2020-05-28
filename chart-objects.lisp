@@ -299,19 +299,5 @@
 		 lst-of-states))
 
 
-(defun resolve-final-state (possible-states state-key)
-  (let+ (;; in theory, these are more states than necessary as not all of
-	 ;; history-states will have exits, but keeping track of this is
-	 ;; bothersome; fixme: if this should be a performance issue, we might
-	 ;; wanna fix it
-	 (history-states (remove-if-not #'is-history-state possible-states))
-	 (bits-to-resolve-on (sc.key::excluded-state-bits state-key))
-	 (resolved-states
-	  (remove-if-not #'(lambda (s) (is-partial-default-state s bits-to-resolve-on))
-			 possible-states))
-	 (final-state resolved-states))
-    (unless (= (length final-state) 1)
-      (error "Implementation error resolving default state for: ~a" state-key))
-    (values (first resolved-states) history-states)))
 
 

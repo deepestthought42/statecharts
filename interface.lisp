@@ -4,6 +4,7 @@
 
 
 (defun %create-state-chart (name root description)
+  (sc.dsl::set-state-bits root (make-instance 'sc.dsl::context))
   (let* ((states (sc.chart::compute-substates root))
 	 (transitions (sc.chart::compute-transitions root '() root))
 	 (fsm-states (sc.fsm::create-states states))
@@ -38,8 +39,7 @@
   (%check-defstatechart-arguments name description definitions)
   (sc.dsl::clear-id)
   `(defparameter ,name (%create-state-chart ',name
-					    (let ((sc.dsl::*nth-sub-state* -1))
-					      (progn ,@definitions))
+					    (progn ,@definitions)
 					    ,description)))
 
 

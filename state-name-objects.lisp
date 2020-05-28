@@ -11,8 +11,10 @@
 (defclass state-id ()
   ((state-bits :accessor state-bits :initarg :state-bits
 	       :initform (error "Need to initialize STATE-BITS."))
-   (excluded-states-bits :accessor excluded-state-bits :initarg :excluded-state-bits
-			 :initform 0)
+   (state-bits-covered :accessor state-bits-covered :initarg :state-bits-covered
+		       :initform (error "Need to initialize STATE-BITS-COVERED."))
+   (state-bits-unspecified :accessor state-bits-unspecified :initarg :state-bits-unspecified
+			   :initform (error "Need to initialize STATE-BITS-UNSPECIFIED."))
    (defining-element :accessor defining-element
 		     :initarg :defining-element
 		     :initform (error "Need to initialize DEFINING-ELEMENT."))))

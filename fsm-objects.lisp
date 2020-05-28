@@ -52,6 +52,14 @@
    (state :initarg :state :accessor state
 	  :initform (error "Must initialize state."))))
 
+(defmethod print-object ((obj transition) stream)
+  (print-unreadable-object (obj stream)
+    (format stream "EV: ~a :: " (event-name obj))
+    (sc.utils::%print-object (initial-state-name obj) stream)
+    (format stream " -> ")
+    (sc.utils::%print-object (final-state-name obj) stream)))
+
+
 (defmethod print-object ((obj target) stream)
   (print-unreadable-object (obj stream)
     (format stream "-> ")

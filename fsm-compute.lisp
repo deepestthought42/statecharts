@@ -55,27 +55,35 @@
 
 
 
-(defun determine-final-states (all-states transitions)
-  (let+ ((trans-final-state-name (reduce #'sc.key::join
-					 (mapcar #'sc.fsm::final-state-name transitions)))
-	 (filter (sc.key::state-bits trans-final-state-name))
-	 (final-states
-	  (iter
-	    (for s in all-states)
-	    (for id = (sc.chart::state-bit s))
-	    (when (= filter (logand filter id))
-	      (collect s)))))
 
+
+(defun determine-final-states (initial-state-state-key all-states transitions)
+  (let+ ((trans-final-state-key 
+	  (reduce #'sc.key::join (mapcar #'sc.fsm::final-state-name transitions)))
+	 (trans-initial-state-key 
+	  (reduce #'sc.key::join (mapcar #'sc.fsm::initial-state-name transitions)))
+	 (not-specified-in-transition-taken-from-initial-key
+	  (logandc2 (sc.key::state-bits initial-state-state-key)
+		    (logior (sc.key::state-bits-covered trans-final-state-key)
+			    (sc.key::state-bits-covered trans-initial-state-key))))
+	 (filter (logior not-specified-in-transition-taken-from-initial-key
+			 (sc.key::state-bits trans-final-state-key)))
+	 (to-resolve-on-for-default (logand (sc.key::state-bits-covered trans-final-state-key)
+					    (sc.key::state-bits-unspecified trans-final-state-key)))
+	 (final-states (iter
+			 (for s in all-states)
+			 (for id = (sc.chart::state-bit s))
+			 (when (and (= filter (logand filter id))
+				    (= (logand (sc.chart::state-bit s)
+					       to-resolve-on-for-default)
+				       (logand (sc.chart::default-state-bit s)
+					       to-resolve-on-for-default)))
+			   (collect s into final-states))
+			 (finally (return final-states)))))
     (cond
       ((not final-states) (error "Couldn't find final state ?"))
-      ;; final states not completely specified, need to select default state or
-      ;; history states
       ((> (length final-states) 1)
-       (let+ (((&values default-state history-states)
-	       (sc.chart::resolve-final-state final-states
-					      trans-final-state-name)))
-	 (unless default-state (error "Couldn't determine default states for final states."))
-	 (values default-state history-states)))
+       (error "Couldn't determine default states for final states."))
       ;; final state completely specified
       (t (first final-states)))))
 
@@ -126,12 +134,12 @@
   (mapcar #'(lambda (state) (push target (targets-with-history state)))
 	  history-fsm-states))
 
-(defun remove-guarded (combined-transitions initial-state-name)
+(defun remove-guarded (combined-transitions initial-state-key)
   (remove-if #'(lambda (tr)
 		 (let+ (((&slots clause) tr))
 		   (when (typep clause 'sc.dsl::when-in-state-clause)
 		     (sc.key::difference (sc.dsl::in-state clause)
-					 initial-state-name
+					 initial-state-key
 					 :accept-unspecified-substate t))))
 	     combined-transitions))
 
@@ -139,12 +147,12 @@
 			      all-fsm/states all-chart-states)
   (let+ ((initial-fsm/state (find-state-for initial-chart-s all-fsm/states))
 	 ;; since we work on state-names, create one for INITIAL-STATE
-	 (initial-state-name (sc.key::from-chart-state initial-chart-s))
-	 (transitions (remove-guarded combined-transitions initial-state-name))
+	 (initial-state-key (sc.key::from-chart-state initial-chart-s))
+	 (transitions (remove-guarded combined-transitions initial-state-key))
 	 ;; transitions could have been cleared at this point
 	 (nil (when (not transitions) (return-from set-transition-target)))
 	 ((&values default-final-state history-states)
-	  (determine-final-states all-chart-states transitions))
+	  (determine-final-states initial-state-key all-chart-states transitions))
 	 (default-final-fsm/state (find-state-for default-final-state all-fsm/states))
 	 (clauses (mapcar #'clause transitions))
 	 ((&values on-exit-actions on-entry-actions)
@@ -186,8 +194,10 @@
 								:defining-element
 								(sc.key::defining-element sc.dsl::final-state)
 								:state-bits (sc.key::state-bits sc.dsl::final-state)
-								:excluded-state-bits
-								(sc.key::excluded-state-bits sc.dsl::final-state))
+								:state-bits-unspecified
+								(sc.key::state-bits-unspecified sc.dsl::final-state)
+								:state-bits-covered
+								(sc.key::state-bits-covered sc.dsl::final-state))
 						 sc.dsl::final-state)
 					     :event-name sc.chart::event-name
 					     :clause c)))

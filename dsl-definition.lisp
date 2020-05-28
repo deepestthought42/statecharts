@@ -31,6 +31,7 @@
 					   :code ',code))
     (otherwise (error "Could not parse guard clause: ~a" clause))))
 
+
 (defun parse-final-state (final)
   (match final
     ((guard  (list (or 'if-in-state 'when-in-state) in-state final-state)
@@ -49,31 +50,15 @@
 
 
 
-
-
-
-
-
-(defparameter *environment* nil)
 (defparameter *sub-state-of-or* nil)
-(defparameter *nth-sub-state* -1)
 
-(defun get-state-bit ()
-  (if *sub-state-of-or* (ash 1 (incf *nth-sub-state*)) 0))
-
-
-(defun get-sub-states-bits (e)
-  (if (typep e 'sc.dsl::state)
-      (+ (state-bit e) (sub-states-bits e))
-      0))
 
 ;;;; helper macros
 (defmacro %superstate (type name state-selector default-state description
 		       entry exit reentry sub-states)
   (ecase type
     (cluster
-     `(let* ((sub-states (let ((*sub-state-of-or* t)) (list ,@sub-states)))
-	     (sub-states-bits (reduce #'logior sub-states :key #'get-sub-states-bits)))
+     `(let* ((sub-states (let ((*sub-state-of-or* t)) (list ,@sub-states))))
 	(if (not (find ,(alexandria:make-keyword default-state)
 		       sub-states :key #'sc.dsl::name :test #'equal))
 	    (error 'sc.cond::couldnt-find-default-state
@@ -85,19 +70,13 @@
 					:on-reentry ,reentry
 					:selector-type ',state-selector
 					:default-state ,default-state
-					:elements sub-states
-					:sub-states-bits sub-states-bits
-					:state-bit (get-state-bit))))
+					:elements sub-states)))
     (orthogonal
-     `(let* ((sub-states (let ((*sub-state-of-or* nil)) (list ,@sub-states)))
-	     (sub-states-bits (reduce #'logior sub-states :key #'get-sub-states-bits)))
-	(make-instance 'sc.dsl::orthogonal :name ,name :description ,description
-					   :on-entry ,entry
-					   :on-reentry ,reentry
-					   :on-exit ,exit
-					   :elements sub-states
-					   :sub-states-bits sub-states-bits
-					   :state-bit (get-state-bit))))))
+     `(make-instance 'sc.dsl::orthogonal :name ,name :description ,description
+					 :on-entry ,entry
+					 :on-reentry ,reentry
+					 :on-exit ,exit
+					 :elements (list ,@sub-states)))))
 
 ;;; statechart definition language
 
@@ -166,8 +145,7 @@ with the ENVIRONMENT as their parameter.
 		  :name ,name :description ,description
 		  :on-entry ,entry
 		  :on-reentry ,reentry
-		  :on-exit ,exit
-		  :state-bit (get-state-bit)))
+		  :on-exit ,exit))
 
 
 (defmacro act ((&optional (environment-symbol 'env)) &body code)

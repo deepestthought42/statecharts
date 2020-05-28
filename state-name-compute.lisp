@@ -46,25 +46,26 @@
 		       (list (first states-description))))))
 	   (no-duplicates
 	    (remove-duplicates sub-states :test #'eq :key #'name))
-	   (state-names-not-in-states-description
-	    (set-difference (mapcar #'sc.dsl::name state-elements)
-			    sub-state-names :test #'equal))
-	   (excluded-state-bits
+	   ((&values state-bits-covered state-bits-unspecified)
 	    (iter
 	      (for element in state-elements)
-	      (when (find (sc.dsl::name element)
-			  state-names-not-in-states-description)
-		(reducing (sc.dsl::sub-states-bits element) by #'logior)))))
+	      (if (find (sc.dsl::name element) sub-state-names :test #'equal)
+		  (reducing (sc.dsl::sub-states-bits element) by #'logior into specified)
+		  (reducing (sc.dsl::sub-states-bits element) by #'logior into unspecified))
+	      (finally (return (values (if specified specified 0)
+				       (if unspecified unspecified 0))))))
+	   (state-bits-unspecified (reduce #'logior sub-states
+					   :key #'state-bits-unspecified
+					   :initial-value state-bits-unspecified))
+	   (state-bits-covered (logior state-bits-covered (sc.dsl::state-bit element))))
       (if (not (= (length sub-states)
 		  (length no-duplicates)))
 	  (%throw "Found duplicate substate definitions for: ~a"
 		  (mapcar #'name (set-difference sub-states no-duplicates))))
       (make-instance 'and-state :name state
 				:defining-element element
-				:excluded-state-bits
-				(reduce #'logior sub-states
-					:key #'excluded-state-bits
-					:initial-value excluded-state-bits)
+				:state-bits-covered state-bits-covered
+				:state-bits-unspecified state-bits-unspecified
 				:state-bits
 				(reduce #'logior sub-states
 					:key #'state-bits
@@ -110,10 +111,12 @@
 				     (first rest))))))
 	   (make-instance 'or-state
 			  :name state
-			  :defining-element element
-			  :excluded-state-bits (if sub-state
-						   (excluded-state-bits sub-state)
-						   (sc.dsl::sub-states-bits element))
+	 		  :defining-element element
+			  :state-bits-covered (logior (sc.dsl::sub-states-bits element)
+						      (sc.dsl::state-bit element))
+			  :state-bits-unspecified (if sub-state
+						      (state-bits-unspecified sub-state)
+						      (sc.dsl::sub-states-bits element))
 			  :state-bits (logior (sc.dsl::state-bit element)
 					      (if sub-state (state-bits sub-state) 0))
 			  :sub-state sub-state)))
@@ -122,6 +125,8 @@
 	      (not (typep element 'sc.dsl::cluster)))
 	 (make-instance 'state :name state
 			       :defining-element element
+			       :state-bits-covered (sc.dsl::state-bit element)
+			       :state-bits-unspecified 0
 			       :state-bits (sc.dsl::state-bit element)))
 	;;
 	(t (%throw "Couldn't parse key: ~a" state-description))))))
@@ -146,6 +151,8 @@
       (if id-only
 	  (make-instance 'state-id
 			 :state-bits (state-bits state-name)
+			 :state-bits-covered (state-bits-covered state-name)
+			 :state-bits-unspecified (state-bits-unspecified state-name)
 			 :defining-element dsl-element)
 	  state-name))))
 
@@ -156,20 +163,23 @@
 
 (defmethod copy ((s state-id))
   (make-instance 'state-d :state-bits (state-bits s)
-			  :excluded-state-bits (excluded-state-bits s)
+			  :state-bits-unspecified (state-bits-unspecified s)
+			  :state-bits-covered (state-bits-covered s)
 			  :defining-element (defining-element s)))
 
 (defmethod copy ((sn state))
   (make-instance 'state :name (name sn)
 			:state-bits (state-bits sn)
-			:excluded-state-bits (excluded-state-bits sn)
+			:state-bits-unspecified (state-bits-unspecified sn)
+			:state-bits-covered (state-bits-covered sn)
 			:defining-element (defining-element sn)))
 
 (defmethod copy ((sn or-state))
   (make-instance 'or-state
 		 :name (name sn)
 		 :state-bits (state-bits sn)
-		 :excluded-state-bits (excluded-state-bits sn)
+		 :state-bits-unspecified (state-bits-unspecified sn)
+		 :state-bits-covered (state-bits-covered sn)
 		 :defining-element (defining-element sn)
 		 :sub-state
 		 (if (sub-state sn)
@@ -179,7 +189,8 @@
   (make-instance 'and-state
 		 :name (name sn)
 		 :defining-element (defining-element sn)
-		 :excluded-state-bits (excluded-state-bits sn)
+		 :state-bits-unspecified (state-bits-unspecified sn)
+		 :state-bits-covered (state-bits-covered sn)
 		 :state-bits (state-bits sn)
 		 :sub-states
 		 (mapcar #'copy (sub-states sn))))
@@ -189,17 +200,21 @@
 
 (defmethod join ((a state-id) (b state-id))
   (make-instance 'state-id :defining-element (defining-element a)
-			   :excluded-state-bits (logior (excluded-state-bits a)
-							(excluded-state-bits b))
-		 :state-bits (logior (state-bits a)
-				     (state-bits b))))
+			   :state-bits-covered (logior (state-bits-covered a)
+						       (state-bits-covered b))
+			   :state-bits-unspecified (logand (state-bits-unspecified a)
+							(state-bits-unspecified b))
+			   :state-bits (logior (state-bits a)
+					       (state-bits b))))
 
 
 
 (defmethod intersect-state-names ((a state-id) (b state-id))
   (make-instance 'state-id :defining-element (defining-element a)
-			   :excluded-state-bits (logand (excluded-state-bits a)
-							(excluded-state-bits b)) 
+			   :state-bits-covered (logand (state-bits-covered a)
+						       (state-bits-covered b))
+			   :state-bits-unspecified (logxor (state-bits-unspecified a)
+							(state-bits-unspecified b))
 			   :state-bits (logand (state-bits a)
 					       (state-bits b))))
 
@@ -219,8 +234,10 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
   (make-instance 'state-id :defining-element (defining-element a)
 			   :state-bits (logandc2 (state-bits a)
 						 (state-bits b))
-			   :excluded-state-bits (logandc2 (excluded-state-bits a)
-							  (excluded-state-bits b))))
+			   :state-bits-covered (logandc2 (state-bits-covered a)
+							 (state-bits-covered b))
+			   :state-bits-unspecified (logandc2 (state-bits-unspecified a)
+							  (state-bits-unspecified b))))
 
 
 ;;; compare state names
@@ -257,7 +274,14 @@ are ignored, such that: (difference (a b) (a)) -> NIL."))
 
 (defmethod from-chart-state ((s sc.chart::s))
   (make-instance 'sc.key::state-id :defining-element (sc.chart::defining-state s)
-				   :state-bits (sc.chart::state-bit s)))
+				   :state-bits (sc.chart::state-bit s)
+				   :state-bits-covered (logior (sc.chart::state-bit s)
+							       (typecase s
+								 (sc.chart::s-xor (sc.chart::sub-state-bit s))
+								 (sc.chart::s-and (sc.chart::sub-states-bits s))
+								 (t 0)))
+				   
+				   :state-bits-unspecified 0))
 
 ;; printing is defined here instead of in state-name-compute to have
 ;; all packages (in particular sc.dsl) and functions available

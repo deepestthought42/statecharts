@@ -62,7 +62,8 @@
 	(-> "c" "month" "date")
 	(-> "c" "date" "day")
 	(-> "c" "day" "year")
-	(-> "c" "year" "mode"))
+	(-> "c" "year" "mode")
+	)
       (-> "2 min in update" "update" "time")
       (-> "c" '("update" "mode") "time")
       (-> "b" "update" "time")
@@ -83,11 +84,53 @@
       (-> "^d" "beep" "10"))))
 
 
+(defparameter /out/
+  (c "out" (d "alarm 1")
+    (c "chime" (h "off")
+      (s "off")
+      (s "on")
+      (-> "d" "on" "off")
+      (-> "d" "off" "on"))
+    (c "alarm 1" (h "off")
+      (s "off")
+      (s "on")
+      (-> "d" "off" "on")
+      (-> "d" "on" "off"))
+    (c "alarm 2" (h "off")
+      (s "off")
+      (s "on")
+      (-> "d" "off" "on")
+      (-> "d" "on" "off"))
+    (c "update 1" (h "hr")
+      (s "hr")
+      (s "10 min")
+      (s "1 min")
+      (-> "c" "hr" "10 min")
+      (-> "c" "10 min" "1 min"))
+    (c "update 2" (h "hr")
+      (s "hr")
+      (s "10 min")
+      (s "1 min")
+      (-> "c" "hr" "10 min")
+      (-> "c" "10 min" "1 min"))
+    (-> "a" "alarm 2" "chime")
+    (-> "a" "alarm 1" "alarm 2")
+    (-> "c" "alarm 1" '("update 1" "hr"))
+    (-> "c" '("update 1" "1 min") "alarm 1")
+    (-> "b" "update 1" "alarm 1")
+    (-> "c" "alarm 2" '("update 2" "hr"))
+    (-> "c" '("update 2" "1 min") "alarm 2")
+    (-> "b" "update 2" "alarm 2")))
+
+
 (defparameter /displays/
   (c "displays" (d "reg outer")
     (s "wait")
     /regular/
-    (-> "2 sec in wait" "wait" '("reg outer" "regular" "update"))))
+    /out/
+    (-> "2 sec in wait" "wait" '("reg outer" "regular" "update" "sec"))
+    (-> "^c" "wait" '("reg outer" "regular" "time"))
+    (-> "c" '("reg outer" "regular" "time") "wait")))
 
 (defparameter /main/
   (o "main" ()
@@ -106,8 +149,13 @@
     (-> "battery removed" "main" "dead")
     (-> "battery inserted" "dead" "main")))
 
-#+nil
+
 (defstatechart (sc/watch) /watch/)
+  
+
+(defparameter *watch-fsm*
+  (make-instance 'environment :fsm (sc:create-fsm-runtime sc/watch :debug t)))
+
 
 #+nil
 (sb-sprof:with-profiling ()

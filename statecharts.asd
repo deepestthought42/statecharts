@@ -14,7 +14,6 @@
 		#:split-sequence
 		#:parachute
 		#:queues.simple-queue
-		#:memoize
 		#:fare-quasiquote-extras)
   :serial t
   :components ((:file "utils")
@@ -26,6 +25,7 @@
 	       (:file "interface-objects")
 	       (:file "state-name-compute")
 	       (:file "chart-compute")
+	       (:file "dsl-compute")
 	       (:file "dsl-definition")
 	       (:file "fsm-compute")
 	       (:file "fsm-runtime")

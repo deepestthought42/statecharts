@@ -48,7 +48,8 @@
 		  sc.dsl::selector-type)
 	  cluster)
 	 ((&values states default-state) (get-states sc.dsl::elements sc.dsl::default-state))
-	 (state-bit (sc.dsl::state-bit cluster)))
+	 (state-bit (sc.dsl::state-bit cluster))
+	 (default-state-bit (sc.dsl::state-bit default-state)))
     (sub-states-check states sc.dsl::name)
     (iter outer
       (for e in states)
@@ -65,9 +66,9 @@
 				    :name sc.dsl::name
 				    :sub-state s
 				    :defining-state cluster
-				    :state-bit (+ state-bit (state-bit s))
-				    :default-state-bit (+ (sc.dsl::state-bit default-state)
-				    			  (default-state-bit s))
+				    :state-bit (logior state-bit (state-bit s))
+				    :default-state-bit (logior (default-state-bit s)
+							       default-state-bit)
 				    :on-entry (sc.dsl::on-entry cluster)
 				    :on-reentry (sc.dsl::on-reentry cluster)
 				    :on-exit (sc.dsl::on-exit cluster)
@@ -95,11 +96,11 @@
       (collect (make-instance 's-and :name sc.dsl::name
 				     :defining-state ortho
 				     :state-bit
-				     (reduce #'+ sub-states :key #'state-bit
-							    :initial-value state-bit)
+				     (reduce #'logior sub-states :key #'state-bit
+								 :initial-value state-bit)
 				     :default-state-bit
-				     (reduce #'+ sub-states :key #'default-state-bit
-							    :initial-value state-bit)
+				     (reduce #'logior sub-states :key #'default-state-bit
+								 :initial-value state-bit)
 				     :on-entry (sc.dsl::on-entry ortho)
 				     :on-reentry (sc.dsl::on-reentry ortho)
 				     :on-exit (sc.dsl::on-exit ortho)

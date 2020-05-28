@@ -337,7 +337,7 @@ integers it is
 - create superstate bitvector to operate on
 - printing of superstate to make life somewhat easier
 - then: all those computation should be trivial now
-*** NA method to compute excluded ids for /orthogonal/ state-keys
+*** DONE method to compute excluded ids for /orthogonal/ state-keys
 - to then be used to derive non-specified /orthogonal/ states from the
   initial-state when resolving transition targets
 **** log
@@ -355,14 +355,125 @@ integers it is
   so I can calculate excluded-state-bits for resolving default states
 - <2020-05-16 Sat 11:57> defstatechart compiles, but the transitions
   in the fsm states aren't filled
+*** DONE rewrite state construction to set bits upon chart construction
+- instead of setting state bits and sub-state bits when construction
+  the state objects, calculate them when constructing the chart itself
+- this will facilitate creating a statechart from components (which
+  worked before the rewrite)
+- first: remove old state setting code
+- introduce dsl-compute.lisp -> asd
+- now, what does it need to do: 
+  - go through the chart objects and set the state-bits
+  - do so leaf first to be able to calcualte sub-states
 
-*** NA what happens with non-specified or states ?
+- test:
+#+BEGIN_SRC lisp
+(in-package :statecharts)
+
+(defparameter /chime-status/
+  (c "chime status" (d "disabled")
+    (s "disabled")
+    (c "enabled" (d "quiet")
+      (s "quiet")
+      (s "beep")
+      (-> "T is whole hour" "quiet" "beep")
+      (-> "2 seconds in beep" "beep" "quiet"))
+    (-> "d" "disabled" "enabled")
+    (-> "d" "enabled" "disabled")))
+
+
+
+(sc.dsl::calculate-state-bits /chime-status/ (make-instance 'sc.dsl::context))
+#+END_SRC
+*** DONE fix issue with three and states (?)
+#+BEGIN_SRC lisp
+(in-package :statecharts)
+(defstatechart (three)
+  (sc:o :o ()
+    (c :1 (d :a)
+      (s :a)
+      (s :b)
+      (-> :ev :a :b)
+      (-> :ev :b :a))
+    (c :2 (d :a)
+      (s :a)
+      (s :b)
+      (-> :ev :a :b))
+    (c :3 (d :a)
+      (s :a)
+      (s :b))))
+#+END_SRC
+
+#+RESULTS:
+: THREE
+*** TODO resolve when coming from outer state
+#+BEGIN_SRC lisp
+(in-package :statecharts)
+
+(defstatechart (/test/)
+  (c "watch" (d "dead")
+    (s "dead")
+    (o "reg outer" ()
+      (c "regular" (d "time")
+	(s "time")
+	(s "date")
+	(c "update" (h "sec")
+	  (s "sec")
+	  (s "1 min")
+	  (s "10 min")
+	  (s "hr")
+	  (s "month")
+	  (s "date")
+	  (s "day")
+	  (s "year")
+	  (s "mode")
+	  (-> "c" "sec" "1 min")
+	  (-> "c" "1 min" "10 min")
+	  (-> "c" "10 min" "hr")
+	  (-> "c" "hr" "month")
+	  (-> "c" "month" "date")
+	  (-> "c" "date" "day")
+	  (-> "c" "day" "year")
+	  (-> "c" "year" "mode"))
+	(-> "2 min in update" "update" "time")
+	(-> "c" '("update" "mode") "time")
+	(-> "b" "update" "time")
+	(-> "d" "time" "date")
+	(-> "d" "date" "time"))
+      (c "beep-test" (d "00")
+	(s "00")
+	(s "10")
+	(s "01")
+	(s "beep")
+	(-> "b" "00" "10")
+	(-> "^b" "10" "00")
+	(-> "b" "01" "beep")
+	(-> "^b" "beep" "01")
+	(-> "d" "00" "01")
+	(-> "^d" "01" "00")
+	(-> "d" "10" "beep")
+	(-> "^d" "beep" "10")))))
+
+#+END_SRC
+
+*** NA include initial-state in calculation again
 - those should be resolved by choosing the default state
-
-
-*** TODO rework id naming
+*** DONE rework id naming
 identifier is a bs name
-
+*** DONE parts of selecting the correct final state
+- final states specified by all the transitions targets (joined
+  transitions targets)
+- within this, there can/will be unspecified substates, these need to
+  be selected for by default states
+  - this can be described by bits-covered for the joined transition
+    targets
+- everything that is not (bits-)covered by the joined transition
+  targets, needs to be selected from the initial-state we are coming
+  from
+  - to select these we need a bits uncovered
+*** TODO select history states + default state in loop
+- which would also make history states work again
+*** TODO look if difference in remove-guared is what we want
 * Footnotes
 
 [fn:1] https://www.merriam-webster.com/dictionary/system
